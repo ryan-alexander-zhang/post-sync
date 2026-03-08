@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TD, TH } from "@/components/ui/table";
 import { getChannelAccounts, getChannelTargets } from "@/lib/api";
+import { parseTelegramTargetConfig } from "@/lib/telegram";
 
 export default async function ChannelsPage() {
   const [accounts, targets] = await Promise.all([
@@ -25,7 +26,7 @@ export default async function ChannelsPage() {
         </Card>
         <Card>
           <Badge>Target</Badge>
-          <h2 className="mt-3 text-2xl font-semibold">Add group target</h2>
+          <h2 className="mt-3 text-2xl font-semibold">Add group or topic target</h2>
           <div className="mt-6">
             <ChannelTargetForm accounts={accounts.items} />
           </div>
@@ -72,27 +73,39 @@ export default async function ChannelsPage() {
             <thead>
               <tr>
                 <TH>Name</TH>
-                <TH>Chat ID</TH>
+                <TH>Group</TH>
+                <TH>Topic</TH>
+                <TH>Route key</TH>
                 <TH>Account</TH>
                 <TH>Enabled</TH>
                 <TH>Action</TH>
               </tr>
             </thead>
             <tbody>
-              {targets.items.map((target) => (
-                <tr key={target.id}>
-                  <TD>{target.targetName}</TD>
-                  <TD className="font-mono text-xs">{target.targetKey}</TD>
-                  <TD>{target.channelAccountId}</TD>
-                  <TD>{String(target.enabled)}</TD>
-                  <TD>
-                    <DeleteButton
-                      label={`target ${target.targetName}`}
-                      path={`/channel-targets/${target.id}`}
-                    />
-                  </TD>
-                </tr>
-              ))}
+              {targets.items.map((target) => {
+                const telegram = parseTelegramTargetConfig(target.configJson);
+
+                return (
+                  <tr key={target.id}>
+                    <TD>{target.targetName}</TD>
+                    <TD className="font-mono text-xs">{telegram.chatId || "-"}</TD>
+                    <TD>
+                      {target.targetType === "telegram_topic"
+                        ? `${telegram.topicName || "Topic"} (${telegram.topicId ?? "-"})`
+                        : "Group root"}
+                    </TD>
+                    <TD className="font-mono text-xs">{target.targetKey}</TD>
+                    <TD>{target.channelAccountId}</TD>
+                    <TD>{String(target.enabled)}</TD>
+                    <TD>
+                      <DeleteButton
+                        label={`target ${target.targetName}`}
+                        path={`/channel-targets/${target.id}`}
+                      />
+                    </TD>
+                  </tr>
+                );
+              })}
             </tbody>
           </Table>
         </div>

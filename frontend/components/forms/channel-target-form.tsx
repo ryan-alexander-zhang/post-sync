@@ -24,10 +24,16 @@ export function ChannelTargetForm({ accounts }: { accounts: ChannelAccount[] }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channelAccountId: formData.get("channelAccountId"),
-          targetType: "telegram_group",
+          targetType:
+            String(formData.get("topicId") || "").trim() === ""
+              ? "telegram_group"
+              : "telegram_topic",
           targetKey: formData.get("targetKey"),
           targetName: formData.get("targetName"),
           config: {
+            chatId: formData.get("targetKey"),
+            topicId: formData.get("topicId"),
+            topicName: formData.get("topicName"),
             disableNotification: false,
             disableWebPagePreview: false,
           },
@@ -59,9 +65,13 @@ export function ChannelTargetForm({ accounts }: { accounts: ChannelAccount[] }) 
         ))}
       </Select>
       <Input name="targetName" placeholder="Target name" required />
-      <Input name="targetKey" placeholder="Telegram chat id" required />
+      <Input name="targetKey" placeholder="Telegram group chat id" required />
+      <Input name="topicName" placeholder="Topic name (optional)" />
+      <Input name="topicId" placeholder="Topic id / message_thread_id (optional)" />
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-foreground/65">{message || "Use Telegram group chat_id as target key."}</p>
+        <p className="text-sm text-foreground/65">
+          {message || "Leave topic fields empty to publish to the group root, or fill topic id to target a specific topic."}
+        </p>
         <Button disabled={isPending || accounts.length === 0} type="submit">
           {isPending ? "Saving..." : "Add target"}
         </Button>
