@@ -4,10 +4,28 @@ import "context"
 
 type Driver interface {
 	Type() string
-	ValidateAccount(config map[string]any, secretRef string) error
-	ValidateTarget(config map[string]any, targetKey string) error
+	ValidateAccount(input AccountValidationInput) error
+	NormalizeTarget(input TargetInput) (NormalizedTarget, error)
 	Render(input RenderInput) (RenderedMessage, error)
 	Send(ctx context.Context, request SendRequest) (SendResult, error)
+}
+
+type AccountValidationInput struct {
+	SecretRef string
+	Config    map[string]any
+}
+
+type TargetInput struct {
+	TargetType string
+	TargetKey  string
+	TargetName string
+	Config     map[string]any
+}
+
+type NormalizedTarget struct {
+	TargetType string
+	TargetKey  string
+	Config     map[string]any
 }
 
 type RenderInput struct {
@@ -25,11 +43,29 @@ type RenderedMessage struct {
 	RenderMode string
 }
 
+type Account struct {
+	ID        string
+	Type      string
+	Name      string
+	SecretRef string
+	Config    map[string]any
+	IsEnabled bool
+}
+
+type Target struct {
+	ID        string
+	Type      string
+	Key       string
+	Name      string
+	Config    map[string]any
+	IsEnabled bool
+}
+
 type SendRequest struct {
-	SecretValue string
-	TargetKey   string
-	Body        string
-	Config      map[string]any
+	Account        Account
+	Target         Target
+	Body           string
+	IdempotencyKey string
 }
 
 type SendResult struct {

@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -324,12 +323,30 @@ func (s *PublishService) executeDelivery(deliveryID string) {
 	if target.ConfigJSON != "" {
 		_ = json.Unmarshal([]byte(target.ConfigJSON), &targetConfig)
 	}
+	accountConfig := map[string]any{}
+	if account.ConfigJSON != "" {
+		_ = json.Unmarshal([]byte(account.ConfigJSON), &accountConfig)
+	}
 
 	sendResult, sendErr := s.sendWithRetry(ctx, driver, channel.SendRequest{
-		SecretValue: os.Getenv(account.SecretRef),
-		TargetKey:   target.TargetKey,
-		Body:        driverRendered.Body,
-		Config:      targetConfig,
+		Account: channel.Account{
+			ID:        account.ID,
+			Type:      account.ChannelType,
+			Name:      account.Name,
+			SecretRef: account.SecretRef,
+			Config:    accountConfig,
+			IsEnabled: account.Enabled,
+		},
+		Target: channel.Target{
+			ID:        target.ID,
+			Type:      target.TargetType,
+			Key:       target.TargetKey,
+			Name:      target.TargetName,
+			Config:    targetConfig,
+			IsEnabled: target.Enabled,
+		},
+		Body:           driverRendered.Body,
+		IdempotencyKey: delivery.IdempotencyKey,
 	})
 	if sendErr != nil {
 		s.failDelivery(ctx, delivery, "CHANNEL_SEND_FAILED", sendErr.Error())

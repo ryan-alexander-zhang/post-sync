@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/erpang/post-sync/internal/channel"
@@ -73,10 +72,10 @@ func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelA
 		return nil, fmt.Errorf("%w: unsupported channel type", ErrValidation)
 	}
 
-	if err := driver.ValidateAccount(input.Config, input.SecretRef); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
-	}
-	if err := validateSecretRef(input.ChannelType, input.SecretRef); err != nil {
+	if err := driver.ValidateAccount(channel.AccountValidationInput{
+		SecretRef: input.SecretRef,
+		Config:    input.Config,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -134,10 +133,10 @@ func (s *ChannelService) UpdateAccount(ctx context.Context, id string, input Upd
 	if err != nil {
 		return nil, fmt.Errorf("%w: unsupported channel type", ErrValidation)
 	}
-	if err := driver.ValidateAccount(input.Config, account.SecretRef); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
-	}
-	if err := validateSecretRef(account.ChannelType, account.SecretRef); err != nil {
+	if err := driver.ValidateAccount(channel.AccountValidationInput{
+		SecretRef: account.SecretRef,
+		Config:    accountConfigMap(account.ConfigJSON, input.Config),
+	}); err != nil {
 		return nil, err
 	}
 
@@ -169,35 +168,31 @@ func (s *ChannelService) CreateTarget(ctx context.Context, input CreateChannelTa
 	if err != nil {
 		return nil, fmt.Errorf("%w: unsupported channel type", ErrValidation)
 	}
-	if err := driver.ValidateTarget(input.Config, input.TargetKey); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
-	}
-
 	enabled := true
 	if input.Enabled != nil {
 		enabled = *input.Enabled
 	}
 
-	targetType := input.TargetType
-	targetKey := strings.TrimSpace(input.TargetKey)
-	configJSON, err := marshalConfig(input.Config)
+	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
+		TargetType: input.TargetType,
+		TargetKey:  input.TargetKey,
+		TargetName: input.TargetName,
+		Config:     input.Config,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
+	}
+
+	configJSON, err := marshalConfig(normalizedTarget.Config)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid config", ErrValidation)
-	}
-	if account.ChannelType == domain.ChannelTypeTelegram {
-		targetKey, targetType, configJSON, err = normalizeTelegramTarget(input.TargetKey, input.TargetType, input.TargetName, input.Config)
-		if err != nil {
-			return nil, err
-		}
-	} else if strings.TrimSpace(targetType) == "" {
-		targetType = domain.TargetTypeTelegramGrp
 	}
 
 	target := &domain.ChannelTarget{
 		ID:               util.NewID(),
 		ChannelAccountID: account.ID,
-		TargetType:       targetType,
-		TargetKey:        targetKey,
+		TargetType:       normalizedTarget.TargetType,
+		TargetKey:        normalizedTarget.TargetKey,
 		TargetName:       strings.TrimSpace(input.TargetName),
 		Enabled:          enabled,
 		ConfigJSON:       configJSON,
@@ -241,23 +236,21 @@ func (s *ChannelService) UpdateTarget(ctx context.Context, id string, input Upda
 		return nil, fmt.Errorf("%w: unsupported channel type", ErrValidation)
 	}
 
-	configMap := map[string]any{}
-	if input.Config != nil {
-		configMap = input.Config
-	}
-	if err := driver.ValidateTarget(configMap, target.TargetKey); err != nil {
+	configMap := targetConfigMap(target.ConfigJSON, input.Config)
+	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
+		TargetType: target.TargetType,
+		TargetKey:  target.TargetKey,
+		TargetName: target.TargetName,
+		Config:     configMap,
+	})
+	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
 	}
-	if account.ChannelType == domain.ChannelTypeTelegram && input.Config != nil {
-		target.TargetKey, target.TargetType, target.ConfigJSON, err = normalizeTelegramTarget(
-			target.TargetKey,
-			target.TargetType,
-			target.TargetName,
-			input.Config,
-		)
-		if err != nil {
-			return nil, err
-		}
+	target.TargetKey = normalizedTarget.TargetKey
+	target.TargetType = normalizedTarget.TargetType
+	target.ConfigJSON, err = marshalConfig(normalizedTarget.Config)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid config", ErrValidation)
 	}
 
 	if err := s.channelRepository.UpdateTarget(ctx, target); err != nil {
@@ -311,14 +304,29 @@ func marshalConfig(config map[string]any) (string, error) {
 	return string(data), nil
 }
 
-func validateSecretRef(channelType, secretRef string) error {
-	if channelType != domain.ChannelTypeTelegram {
-		return nil
+func accountConfigMap(currentConfigJSON string, override map[string]any) map[string]any {
+	if override != nil {
+		return override
+	}
+	return parseConfig(currentConfigJSON)
+}
+
+func targetConfigMap(currentConfigJSON string, override map[string]any) map[string]any {
+	if override != nil {
+		return override
+	}
+	return parseConfig(currentConfigJSON)
+}
+
+func parseConfig(raw string) map[string]any {
+	if strings.TrimSpace(raw) == "" {
+		return map[string]any{}
 	}
 
-	if _, ok := os.LookupEnv(secretRef); !ok {
-		return fmt.Errorf("%w: environment variable %s is not set", ErrValidation, secretRef)
+	config := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &config); err != nil {
+		return map[string]any{}
 	}
 
-	return nil
+	return config
 }
