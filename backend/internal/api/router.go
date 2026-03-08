@@ -1,6 +1,8 @@
 package api
 
 import (
+	"github.com/erpang/post-sync/internal/channel"
+	"github.com/erpang/post-sync/internal/channel/telegram"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
@@ -26,11 +28,17 @@ func NewRouter(database *gorm.DB) *gin.Engine {
 	})
 
 	contentRepository := repository.NewContentRepository(database)
+	channelRepository := repository.NewChannelRepository(database)
+
 	contentService := service.NewContentService(contentRepository)
+	channelService := service.NewChannelService(channelRepository, channel.NewRegistry(telegram.New()))
+
 	contentHandler := NewContentHandler(contentService)
+	channelHandler := NewChannelHandler(channelService)
 
 	apiGroup := router.Group("/api/v1")
 	contentHandler.RegisterRoutes(apiGroup)
+	channelHandler.RegisterRoutes(apiGroup)
 
 	return router
 }
