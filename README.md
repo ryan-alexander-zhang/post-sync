@@ -135,12 +135,6 @@ make dev-backend
 make dev-frontend
 ```
 
-前后端一起后台启动：
-
-```bash
-make dev-up
-```
-
 如果前端开发态出现 `.next` 缓存损坏、样式丢失或 `ENOENT app-build-manifest.json` 这类问题，可直接重启：
 
 ```bash
