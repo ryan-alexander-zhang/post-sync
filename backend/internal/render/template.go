@@ -2,6 +2,7 @@ package render
 
 import (
 	"bytes"
+	"fmt"
 	"html"
 	"regexp"
 	"strings"
@@ -39,9 +40,12 @@ func NewTemplateRenderer() *TemplateRenderer {
 }
 
 func (r *TemplateRenderer) RenderMarkdown(templateName, text string, context Context) (string, error) {
-	tpl := template.Must(template.New(templateName).Funcs(template.FuncMap{
-		"join": strings.Join,
-	}).Parse(text))
+	tpl, err := template.New(templateName).Funcs(template.FuncMap{
+		"join": joinValues,
+	}).Parse(text)
+	if err != nil {
+		return "", err
+	}
 
 	var markdownBuffer bytes.Buffer
 	if err := tpl.Execute(&markdownBuffer, context); err != nil {
@@ -82,4 +86,25 @@ func sanitizeTelegramHTML(input string) string {
 
 func EscapeFallback(text string) string {
 	return strings.ReplaceAll(html.EscapeString(text), "\n", "\n")
+}
+
+func joinValues(value any, separator string) string {
+	switch typed := value.(type) {
+	case []string:
+		return strings.Join(typed, separator)
+	case []any:
+		items := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			text := strings.TrimSpace(fmt.Sprint(entry))
+			if text == "" {
+				continue
+			}
+			items = append(items, text)
+		}
+		return strings.Join(items, separator)
+	case nil:
+		return ""
+	default:
+		return strings.TrimSpace(fmt.Sprint(typed))
+	}
 }
