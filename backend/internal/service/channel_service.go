@@ -176,6 +176,7 @@ func (s *ChannelService) CreateTarget(ctx context.Context, input CreateChannelTa
 	targetConfig := input.Config
 	if account.ChannelType == domain.ChannelTypePersonalFeishu {
 		targetConfig = mergeConfig(parseConfig(account.ConfigJSON), input.Config)
+		targetConfig["webhookEnvRef"] = account.SecretRef
 	}
 
 	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
@@ -244,6 +245,7 @@ func (s *ChannelService) UpdateTarget(ctx context.Context, id string, input Upda
 	configMap := targetConfigMap(target.ConfigJSON, input.Config)
 	if account.ChannelType == domain.ChannelTypePersonalFeishu {
 		configMap = mergeConfig(parseConfig(account.ConfigJSON), configMap)
+		configMap["webhookEnvRef"] = account.SecretRef
 	}
 	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
 		TargetType: target.TargetType,

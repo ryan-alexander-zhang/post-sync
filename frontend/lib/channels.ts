@@ -14,13 +14,13 @@ export type FeishuAccountConfig = {
   appIdEnv?: string;
   tokenEnv?: string;
   baseUrl?: string;
-  webhookUrl?: string;
+  signSecretRef?: string;
 };
 
 export type FeishuTargetConfig = {
   receiveIdType?: string;
   chatId?: string;
-  webhookUrl?: string;
+  webhookEnvRef?: string;
 };
 
 export const CHANNEL_OPTIONS: Array<{
@@ -44,8 +44,8 @@ export const CHANNEL_OPTIONS: Array<{
   {
     value: "personal_feishu",
     label: "Personal Feishu",
-    description: "Use a webhook URL from a personal/custom Feishu bot.",
-    defaultSecretRef: "",
+    description: "Use environment refs for webhook URL and sign secret.",
+    defaultSecretRef: "PERSONAL_FEISHU_WEBHOOK_URL",
   },
 ];
 
@@ -79,9 +79,9 @@ export function buildChannelAccountPayload(channelType: SupportedChannelType, fo
     return {
       channelType,
       name: formData.get("name"),
-      secretRef: "",
+      secretRef: formData.get("secretRef"),
       config: {
-        webhookUrl: formData.get("webhookUrl"),
+        signSecretRef: formData.get("signSecretRef"),
       },
     };
   }

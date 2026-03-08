@@ -56,19 +56,19 @@ export function ChannelAccountForm() {
         ))}
       </Select>
       <Input name="name" placeholder="Account name" required />
-      {channelType !== "personal_feishu" ? (
-        <Input
-          autoCapitalize="off"
-          autoCorrect="off"
-          defaultValue={
-            CHANNEL_OPTIONS.find((option) => option.value === channelType)?.defaultSecretRef
-          }
-          key={channelType}
-          name="secretRef"
-          placeholder="Secret env ref"
-          required
-        />
-      ) : null}
+      <Input
+        autoCapitalize="off"
+        autoCorrect="off"
+        defaultValue={
+          CHANNEL_OPTIONS.find((option) => option.value === channelType)?.defaultSecretRef
+        }
+        key={channelType}
+        name="secretRef"
+        placeholder={
+          channelType === "personal_feishu" ? "Webhook URL env ref" : "Secret env ref"
+        }
+        required
+      />
       {channelType === "feishu" ? (
         <>
           <Input
@@ -98,8 +98,9 @@ export function ChannelAccountForm() {
         <Input
           autoCapitalize="off"
           autoCorrect="off"
-          name="webhookUrl"
-          placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+          defaultValue="PERSONAL_FEISHU_SIGN_SECRET"
+          name="signSecretRef"
+          placeholder="Sign secret env ref"
           required
         />
       ) : null}
@@ -109,7 +110,7 @@ export function ChannelAccountForm() {
             (channelType === "feishu"
               ? "Enterprise Feishu uses FEISHU_APP_ID + FEISHU_APP_SECRET by default, with optional FEISHU_TENANT_ACCESS_TOKEN override."
               : channelType === "personal_feishu"
-                ? "Personal Feishu only needs a webhook URL from the custom bot."
+                ? "Personal Feishu uses one env ref for the webhook URL and one env ref for the sign secret."
                 : "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef.")}
         </p>
         <Button disabled={isPending} type="submit">

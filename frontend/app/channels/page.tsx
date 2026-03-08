@@ -120,7 +120,7 @@ export default async function ChannelsPage() {
                       {account.channelType === "feishu"
                         ? [feishu.appIdEnv, feishu.tokenEnv].filter(Boolean).join(" / ") || "-"
                         : account.channelType === "personal_feishu"
-                          ? feishu.webhookUrl || "-"
+                          ? feishu.signSecretRef || "-"
                         : "-"}
                     </TD>
                     <TD>

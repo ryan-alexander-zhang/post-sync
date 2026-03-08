@@ -129,6 +129,8 @@ TELEGRAM_BOT_TOKEN=your_bot_token
 FEISHU_APP_ID=cli_xxx
 FEISHU_APP_SECRET=app_secret_xxx
 FEISHU_TENANT_ACCESS_TOKEN=
+PERSONAL_FEISHU_WEBHOOK_URL=https://open.feishu.cn/open-apis/bot/v2/hook/xxxx
+PERSONAL_FEISHU_SIGN_SECRET=custom_bot_sign_secret
 
 PUBLISH_MAX_PARALLELISM=5
 PUBLISH_TIMEOUT_SECONDS=20
@@ -181,6 +183,8 @@ make restart-backend
 | `FEISHU_APP_ID` | 否 | Feishu 应用 app id |
 | `FEISHU_APP_SECRET` | 否 | Feishu 应用 app secret |
 | `FEISHU_TENANT_ACCESS_TOKEN` | 否 | Feishu 调试时可直接提供的 tenant access token |
+| `PERSONAL_FEISHU_WEBHOOK_URL` | 否 | Personal Feishu 自定义机器人的 webhook URL |
+| `PERSONAL_FEISHU_SIGN_SECRET` | 否 | Personal Feishu 自定义机器人的签名秘钥 |
 | `PUBLISH_MAX_PARALLELISM` | 否 | 单任务最大发送并发数 |
 | `PUBLISH_TIMEOUT_SECONDS` | 否 | 单次投递超时 |
 | `HTTP_READ_TIMEOUT_SECONDS` | 否 | HTTP 读超时 |
@@ -253,11 +257,16 @@ docker compose --profile postgres up -d
 
 ## 示例使用流程
 
-1. 在 `/channels` 配置一个 Telegram 或 Feishu channel account。
-2. Telegram 账号一般使用 `secretRef=TELEGRAM_BOT_TOKEN`；Feishu 账号一般使用 `secretRef=FEISHU_APP_SECRET`，并在配置里填写 `FEISHU_APP_ID`。
+1. 在 `/channels` 配置一个 Telegram、Enterprise Feishu 或 Personal Feishu channel account。
+2. Telegram 账号一般使用 `secretRef=TELEGRAM_BOT_TOKEN`。
+3. Enterprise Feishu 账号一般使用 `secretRef=FEISHU_APP_SECRET`，并在配置里填写 `FEISHU_APP_ID`。
+4. Personal Feishu 账号使用：
+   - `secretRef=PERSONAL_FEISHU_WEBHOOK_URL`
+   - `signSecretRef=PERSONAL_FEISHU_SIGN_SECRET`
 3. 在 `/channels` 新增 target：
    - Telegram：填写群组 `chat_id`；若要发到某个 topic，再补 `topic_id`
-   - Feishu：填写群聊 `chat_id`
+   - Enterprise Feishu：填写群聊 `chat_id`
+   - Personal Feishu：只填写 target 名称，复用账号里的 webhook 配置
 4. 在 `/contents` 上传 Markdown 文件。
 5. 系统解析 frontmatter，生成内容记录和 `body_hash`。
 6. 在 `/publish/new` 选择内容、target、模板，发起发布。

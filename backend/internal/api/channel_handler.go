@@ -1,9 +1,11 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
+	"github.com/erpang/post-sync/internal/domain"
 	"github.com/erpang/post-sync/internal/service"
 	"github.com/gin-gonic/gin"
 )
@@ -33,7 +35,7 @@ func (h *ChannelHandler) ListAccounts(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": accounts})
+	c.JSON(http.StatusOK, gin.H{"items": sanitizeAccounts(accounts)})
 }
 
 func (h *ChannelHandler) CreateAccount(c *gin.Context) {
@@ -49,7 +51,7 @@ func (h *ChannelHandler) CreateAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, account)
+	c.JSON(http.StatusCreated, sanitizeAccount(*account))
 }
 
 func (h *ChannelHandler) UpdateAccount(c *gin.Context) {
@@ -69,7 +71,7 @@ func (h *ChannelHandler) UpdateAccount(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, account)
+	c.JSON(http.StatusOK, sanitizeAccount(*account))
 }
 
 func (h *ChannelHandler) ListTargets(c *gin.Context) {
@@ -78,7 +80,7 @@ func (h *ChannelHandler) ListTargets(c *gin.Context) {
 		writeServiceError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"items": targets})
+	c.JSON(http.StatusOK, gin.H{"items": sanitizeTargets(targets)})
 }
 
 func (h *ChannelHandler) CreateTarget(c *gin.Context) {
@@ -98,7 +100,7 @@ func (h *ChannelHandler) CreateTarget(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, target)
+	c.JSON(http.StatusCreated, sanitizeTarget(*target))
 }
 
 func (h *ChannelHandler) UpdateTarget(c *gin.Context) {
@@ -118,7 +120,7 @@ func (h *ChannelHandler) UpdateTarget(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, target)
+	c.JSON(http.StatusOK, sanitizeTarget(*target))
 }
 
 func (h *ChannelHandler) DeleteAccount(c *gin.Context) {
@@ -149,4 +151,65 @@ func (h *ChannelHandler) DeleteTarget(c *gin.Context) {
 	}
 
 	c.Status(http.StatusNoContent)
+}
+
+func sanitizeAccounts(items []domain.ChannelAccount) []domain.ChannelAccount {
+	sanitized := make([]domain.ChannelAccount, 0, len(items))
+	for _, item := range items {
+		sanitized = append(sanitized, sanitizeAccount(item))
+	}
+	return sanitized
+}
+
+func sanitizeTargets(items []domain.ChannelTarget) []domain.ChannelTarget {
+	sanitized := make([]domain.ChannelTarget, 0, len(items))
+	for _, item := range items {
+		sanitized = append(sanitized, sanitizeTarget(item))
+	}
+	return sanitized
+}
+
+func sanitizeAccount(account domain.ChannelAccount) domain.ChannelAccount {
+	if account.ChannelType != domain.ChannelTypePersonalFeishu {
+		return account
+	}
+
+	config := parseJSONConfig(account.ConfigJSON)
+	delete(config, "webhookUrl")
+	delete(config, "signSecret")
+	account.ConfigJSON = marshalSanitizedConfig(config)
+	return account
+}
+
+func sanitizeTarget(target domain.ChannelTarget) domain.ChannelTarget {
+	if target.TargetType != domain.TargetTypePersonalFeishuWebhook {
+		return target
+	}
+
+	config := parseJSONConfig(target.ConfigJSON)
+	delete(config, "webhookUrl")
+	target.ConfigJSON = marshalSanitizedConfig(config)
+	return target
+}
+
+func parseJSONConfig(raw string) map[string]any {
+	if raw == "" {
+		return map[string]any{}
+	}
+	config := map[string]any{}
+	if err := json.Unmarshal([]byte(raw), &config); err != nil {
+		return map[string]any{}
+	}
+	return config
+}
+
+func marshalSanitizedConfig(config map[string]any) string {
+	if len(config) == 0 {
+		return "{}"
+	}
+	data, err := json.Marshal(config)
+	if err != nil {
+		return "{}"
+	}
+	return string(data)
 }

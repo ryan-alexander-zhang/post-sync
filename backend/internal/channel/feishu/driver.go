@@ -3,7 +3,9 @@ package feishu
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -11,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/erpang/post-sync/internal/channel"
 	"github.com/erpang/post-sync/internal/domain"
@@ -200,19 +203,30 @@ func (d *PersonalDriver) Type() string {
 }
 
 func (d *PersonalDriver) ValidateAccount(input channel.AccountValidationInput) error {
-	if strings.TrimSpace(stringValue(input.Config["webhookUrl"])) == "" {
-		return fmt.Errorf("personal feishu webhookUrl is required")
+	webhookURL, err := resolveConfiguredValueAllowDirect(input.SecretRef, input.Config, "webhookUrl")
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(webhookURL) == "" {
+		return fmt.Errorf("personal feishu webhook url is required")
+	}
+
+	if _, err := resolveConfiguredValue(input.Config, "signSecretRef", "signSecret"); err != nil {
+		return err
 	}
 	return nil
 }
 
 func (d *PersonalDriver) NormalizeTarget(input channel.TargetInput) (channel.NormalizedTarget, error) {
-	webhookURL := strings.TrimSpace(stringValue(input.Config["webhookUrl"]))
-	if webhookURL == "" {
-		webhookURL = strings.TrimSpace(input.TargetKey)
+	webhookRef := strings.TrimSpace(stringValue(input.Config["webhookEnvRef"]))
+	if webhookRef == "" {
+		webhookRef = strings.TrimSpace(stringValue(input.Config["webhookUrl"]))
 	}
-	if webhookURL == "" {
-		return channel.NormalizedTarget{}, fmt.Errorf("personal feishu webhook url is required")
+	if webhookRef == "" {
+		webhookRef = strings.TrimSpace(input.TargetKey)
+	}
+	if webhookRef == "" {
+		return channel.NormalizedTarget{}, fmt.Errorf("personal feishu webhook reference is required")
 	}
 
 	targetType := strings.TrimSpace(input.TargetType)
@@ -225,9 +239,9 @@ func (d *PersonalDriver) NormalizeTarget(input channel.TargetInput) (channel.Nor
 
 	return channel.NormalizedTarget{
 		TargetType: targetType,
-		TargetKey:  buildWebhookTargetKey(webhookURL),
+		TargetKey:  buildWebhookTargetKey(webhookRef),
 		Config: map[string]any{
-			"webhookUrl": webhookURL,
+			"webhookEnvRef": webhookRef,
 		},
 	}, nil
 }
@@ -250,16 +264,30 @@ func (d *PersonalDriver) Render(input channel.RenderInput) (channel.RenderedMess
 }
 
 func (d *PersonalDriver) Send(ctx context.Context, request channel.SendRequest) (channel.SendResult, error) {
-	webhookURL := strings.TrimSpace(stringValue(request.Target.Config["webhookUrl"]))
-	if webhookURL == "" {
-		webhookURL = strings.TrimSpace(stringValue(request.Account.Config["webhookUrl"]))
+	webhookURL, err := resolveConfiguredValueAllowDirect(
+		request.Account.SecretRef,
+		request.Account.Config,
+		"webhookUrl",
+	)
+	if err != nil {
+		return channel.SendResult{}, err
 	}
-	if webhookURL == "" {
-		return channel.SendResult{}, fmt.Errorf("personal feishu webhook url is required")
+
+	timestamp := time.Now().Unix()
+	signSecret, err := resolveConfiguredValue(request.Account.Config, "signSecretRef", "signSecret")
+	if err != nil {
+		return channel.SendResult{}, err
+	}
+
+	sign, err := genWebhookSign(signSecret, timestamp)
+	if err != nil {
+		return channel.SendResult{}, err
 	}
 
 	payloadBody, err := json.Marshal(map[string]any{
-		"msg_type": "text",
+		"timestamp": fmt.Sprintf("%d", timestamp),
+		"sign":      sign,
+		"msg_type":  "text",
 		"content": map[string]string{
 			"text": request.Body,
 		},
@@ -306,7 +334,7 @@ func (d *PersonalDriver) Send(ctx context.Context, request channel.SendRequest) 
 	}
 
 	return channel.SendResult{
-		ExternalMessageID: buildWebhookTargetKey(webhookURL),
+		ExternalMessageID: request.Target.Key,
 		ProviderResponse:  rawBody.String(),
 	}, nil
 }
@@ -368,4 +396,26 @@ func renderPostMessage(input channel.RenderInput) channel.RenderedMessage {
 func buildWebhookTargetKey(webhookURL string) string {
 	sum := sha256.Sum256([]byte(strings.TrimSpace(webhookURL)))
 	return "webhook:" + hex.EncodeToString(sum[:8])
+}
+
+func genWebhookSign(secret string, timestamp int64) (string, error) {
+	stringToSign := fmt.Sprintf("%d\n%s", timestamp, secret)
+	h := hmac.New(sha256.New, []byte(stringToSign))
+	if _, err := h.Write(nil); err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(h.Sum(nil)), nil
+}
+
+func resolveConfiguredValueAllowDirect(secretRef string, config map[string]any, directKey string) (string, error) {
+	if trimmed := strings.TrimSpace(secretRef); trimmed != "" {
+		if value := strings.TrimSpace(os.Getenv(trimmed)); value != "" {
+			return value, nil
+		}
+		return "", fmt.Errorf("environment variable %s is not set", trimmed)
+	}
+	if value := strings.TrimSpace(stringValue(config[directKey])); value != "" {
+		return value, nil
+	}
+	return "", fmt.Errorf("%s is required", directKey)
 }

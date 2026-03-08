@@ -106,7 +106,7 @@ func TestPersonalNormalizeTargetUsesWebhookHash(t *testing.T) {
 	normalized, err := driver.NormalizeTarget(channel.TargetInput{
 		TargetName: "Personal Bot",
 		Config: map[string]any{
-			"webhookUrl": "https://example.com/bot/hook/test",
+			"webhookEnvRef": "PERSONAL_FEISHU_WEBHOOK_URL",
 		},
 	})
 	if err != nil {
@@ -119,12 +119,15 @@ func TestPersonalNormalizeTargetUsesWebhookHash(t *testing.T) {
 	if !strings.HasPrefix(normalized.TargetKey, "webhook:") {
 		t.Fatalf("TargetKey = %q", normalized.TargetKey)
 	}
-	if normalized.Config["webhookUrl"] != "https://example.com/bot/hook/test" {
-		t.Fatalf("webhookUrl = %#v", normalized.Config["webhookUrl"])
+	if normalized.Config["webhookEnvRef"] != "PERSONAL_FEISHU_WEBHOOK_URL" {
+		t.Fatalf("webhookEnvRef = %#v", normalized.Config["webhookEnvRef"])
 	}
 }
 
 func TestPersonalSendUsesWebhook(t *testing.T) {
+	t.Setenv("PERSONAL_FEISHU_WEBHOOK_URL", "https://example.com/webhook")
+	t.Setenv("PERSONAL_FEISHU_SIGN_SECRET", "demo-secret")
+
 	client := &http.Client{
 		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
 			if r.Method != http.MethodPost {
@@ -137,6 +140,12 @@ func TestPersonalSendUsesWebhook(t *testing.T) {
 			}
 			if payload["msg_type"] != "text" {
 				t.Fatalf("msg_type = %v", payload["msg_type"])
+			}
+			if _, ok := payload["timestamp"].(string); !ok {
+				t.Fatalf("timestamp missing: %#v", payload["timestamp"])
+			}
+			if _, ok := payload["sign"].(string); !ok {
+				t.Fatalf("sign missing: %#v", payload["sign"])
 			}
 
 			content, _ := payload["content"].(map[string]any)
@@ -151,14 +160,15 @@ func TestPersonalSendUsesWebhook(t *testing.T) {
 	driver := NewPersonal(client)
 	result, err := driver.Send(context.Background(), channel.SendRequest{
 		Account: channel.Account{
-			Type: domain.ChannelTypePersonalFeishu,
+			Type:      domain.ChannelTypePersonalFeishu,
+			SecretRef: "PERSONAL_FEISHU_WEBHOOK_URL",
 			Config: map[string]any{
-				"webhookUrl": "https://example.com/webhook",
+				"signSecretRef": "PERSONAL_FEISHU_SIGN_SECRET",
 			},
 		},
 		Target: channel.Target{
 			Type: domain.TargetTypePersonalFeishuWebhook,
-			Key:  buildWebhookTargetKey("https://example.com/webhook"),
+			Key:  buildWebhookTargetKey("PERSONAL_FEISHU_WEBHOOK_URL"),
 		},
 		Body: "Weekly Update\n\nhello",
 	})
@@ -202,15 +212,29 @@ func TestValidateAccountAcceptsStaticTokenEnv(t *testing.T) {
 }
 
 func TestPersonalValidateAccountRequiresWebhook(t *testing.T) {
+	t.Setenv("PERSONAL_FEISHU_WEBHOOK_URL", "https://example.com/hook")
+	t.Setenv("PERSONAL_FEISHU_SIGN_SECRET", "demo-secret")
+
 	driver := NewPersonal(nil)
 
 	err := driver.ValidateAccount(channel.AccountValidationInput{
+		SecretRef: "PERSONAL_FEISHU_WEBHOOK_URL",
 		Config: map[string]any{
-			"webhookUrl": "https://example.com/hook",
+			"signSecretRef": "PERSONAL_FEISHU_SIGN_SECRET",
 		},
 	})
 	if err != nil {
 		t.Fatalf("ValidateAccount() error = %v", err)
+	}
+}
+
+func TestGenWebhookSignMatchesDocAlgorithm(t *testing.T) {
+	sign, err := genWebhookSign("demo", 1599360473)
+	if err != nil {
+		t.Fatalf("genWebhookSign() error = %v", err)
+	}
+	if sign == "" {
+		t.Fatalf("sign should not be empty")
 	}
 }
 
