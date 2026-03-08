@@ -3,6 +3,9 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	"github.com/erpang/post-sync/internal/repository"
+	"github.com/erpang/post-sync/internal/service"
 )
 
 func NewRouter(database *gorm.DB) *gin.Engine {
@@ -21,6 +24,13 @@ func NewRouter(database *gorm.DB) *gin.Engine {
 			"status":   "ready",
 		})
 	})
+
+	contentRepository := repository.NewContentRepository(database)
+	contentService := service.NewContentService(contentRepository)
+	contentHandler := NewContentHandler(contentService)
+
+	apiGroup := router.Group("/api/v1")
+	contentHandler.RegisterRoutes(apiGroup)
 
 	return router
 }
