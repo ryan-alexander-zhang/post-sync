@@ -41,6 +41,18 @@ func (s *ContentService) Upload(ctx context.Context, filename string, raw []byte
 		return nil, fmt.Errorf("%w: parse markdown: %v", ErrValidation, err)
 	}
 
+	existing, err := s.contentRepository.GetByBodyHash(ctx, parsed.BodyHash)
+	if err == nil {
+		return nil, fmt.Errorf(
+			"%w: duplicate content upload; existing content id=%s",
+			ErrValidation,
+			existing.ID,
+		)
+	}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
 	content := &domain.Content{
 		ID:               util.NewID(),
 		SourceFilename:   filename,

@@ -36,6 +36,15 @@ func (r *ContentRepository) GetByID(ctx context.Context, id string) (*domain.Con
 	return &content, nil
 }
 
+func (r *ContentRepository) GetByBodyHash(ctx context.Context, bodyHash string) (*domain.Content, error) {
+	var content domain.Content
+	err := r.db.WithContext(ctx).First(&content, "body_hash = ?", bodyHash).Error
+	if err != nil {
+		return nil, err
+	}
+	return &content, nil
+}
+
 func (r *ContentRepository) DeleteByID(ctx context.Context, id string) error {
 	return r.db.WithContext(ctx).Delete(&domain.Content{}, "id = ?", id).Error
 }

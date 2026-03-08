@@ -292,6 +292,7 @@ Personal Feishu 当前实现规则：
 - 默认模板仍输出 Markdown 文本
 - Personal Feishu driver 不复用 Enterprise Feishu 的 `md` 节点
 - driver 将正文按 webhook `post.zh_cn.content` 转成段落数组
+- 每一行输出一个 paragraph；空行保留为 `[]`，避免丢失消息中的显式空白分隔
 - 普通文本映射为 `text` 节点，Markdown 链接 `[text](url)` 映射为 `a` 节点
 - 若存在 `title`，写入 `post.zh_cn.title`
 
@@ -315,11 +316,12 @@ MVP 渲染链路：
 
 1. 上传 Markdown 文件。
 2. 解析 frontmatter 和正文。
-3. 生成标准化 `Content`。
-4. 组装模板上下文。
-5. 通过模板引擎生成渠道消息骨架。
-6. 由渠道驱动把正文转换为目标平台可发送格式。
-7. 得到最终 `RenderedMessage` 并投递。
+3. 计算标准化正文的 `body_hash`，若已存在相同内容则拒绝重复上传。
+4. 生成标准化 `Content`。
+5. 组装模板上下文。
+6. 通过模板引擎生成渠道消息骨架。
+7. 由渠道驱动把正文转换为目标平台可发送格式。
+8. 得到最终 `RenderedMessage` 并投递。
 
 ### 7.2 模板上下文
 
@@ -370,8 +372,8 @@ Personal Feishu：
 
 1. 模板产出 Markdown。
 2. 不复用 Enterprise Feishu 的 `md` 节点结构。
-3. 将正文拆成 webhook `post.zh_cn.content` 段落数组。
-4. 普通文本写入 `text` 节点，Markdown 链接写入 `a` 节点。
+3. 将正文逐行拆成 webhook `post.zh_cn.content` 段落数组。
+4. 空行写成空 paragraph `[]`，普通文本写入 `text` 节点，Markdown 链接写入 `a` 节点。
 5. 标题进入 `post.zh_cn.title`。
 
 这样可以让模板层保持统一，而把平台差异压缩在 driver 内。
@@ -485,6 +487,12 @@ MVP 默认在单次发布中自动重试最多 2 次，仅针对瞬时错误：
 ### 10.2 去重哈希
 
 对 `body_markdown` 计算 `sha256`，保存为 `body_hash`。
+
+上传阶段同样使用 `body_hash` 做内容级查重：
+
+- 若已存在相同 `body_hash` 的 `content`，拒绝本次上传
+- 上传去重不关心文件名，只关心标准化后的正文
+- 因此仅修改 frontmatter 或文件名不会生成新 content
 
 去重粒度为：
 

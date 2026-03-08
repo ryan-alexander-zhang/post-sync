@@ -379,28 +379,17 @@ func buildPersonalPostContent(title, body string) map[string]any {
 }
 
 func buildPersonalParagraphs(body string) [][]map[string]string {
-	trimmed := strings.TrimSpace(body)
-	if trimmed == "" {
-		return [][]map[string]string{{{
-			"tag":  "text",
-			"text": "",
-		}}}
+	normalized := strings.ReplaceAll(body, "\r\n", "\n")
+	normalized = strings.ReplaceAll(normalized, "\r", "\n")
+	normalized = strings.Trim(normalized, "\n")
+	if normalized == "" {
+		return [][]map[string]string{{}}
 	}
 
-	rawParagraphs := strings.Split(trimmed, "\n\n")
-	paragraphs := make([][]map[string]string, 0, len(rawParagraphs))
-	for _, paragraph := range rawParagraphs {
-		nodes := buildPersonalParagraphNodes(paragraph)
-		if len(nodes) == 0 {
-			continue
-		}
-		paragraphs = append(paragraphs, nodes)
-	}
-	if len(paragraphs) == 0 {
-		return [][]map[string]string{{{
-			"tag":  "text",
-			"text": trimmed,
-		}}}
+	lines := strings.Split(normalized, "\n")
+	paragraphs := make([][]map[string]string, 0, len(lines))
+	for _, line := range lines {
+		paragraphs = append(paragraphs, buildPersonalParagraphNodes(line))
 	}
 	return paragraphs
 }

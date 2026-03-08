@@ -376,6 +376,29 @@ func TestBuildPersonalPostContentConvertsMarkdownLinkToAnchorTag(t *testing.T) {
 	}
 }
 
+func TestBuildPersonalPostContentPreservesBlankLineAsEmptyParagraph(t *testing.T) {
+	content := buildPersonalPostContent("这是一个标题", "这是第一行文本\n\n这是第二行文本，前面有一个空行")
+
+	zhCN, ok := content["zh_cn"].(map[string]any)
+	if !ok {
+		t.Fatalf("zh_cn payload missing")
+	}
+
+	paragraphs, ok := zhCN["content"].([][]map[string]string)
+	if !ok || len(paragraphs) != 3 {
+		t.Fatalf("paragraphs = %#v", zhCN["content"])
+	}
+	if len(paragraphs[0]) != 1 || paragraphs[0][0]["text"] != "这是第一行文本" {
+		t.Fatalf("first paragraph = %#v", paragraphs[0])
+	}
+	if len(paragraphs[1]) != 0 {
+		t.Fatalf("second paragraph should be empty, got %#v", paragraphs[1])
+	}
+	if len(paragraphs[2]) != 1 || paragraphs[2][0]["text"] != "这是第二行文本，前面有一个空行" {
+		t.Fatalf("third paragraph = %#v", paragraphs[2])
+	}
+}
+
 func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }

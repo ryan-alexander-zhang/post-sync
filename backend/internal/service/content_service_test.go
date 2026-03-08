@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/erpang/post-sync/internal/domain"
@@ -35,6 +36,40 @@ func TestContentServiceDeleteByIDDeletesUnpublishedContent(t *testing.T) {
 	_, err := contentRepository.GetByID(context.Background(), content.ID)
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		t.Fatalf("GetByID() error = %v, want record not found", err)
+	}
+}
+
+func TestContentServiceUploadRejectsDuplicateBodyHash(t *testing.T) {
+	db := openTestDB(t)
+	contentRepository := repository.NewContentRepository(db)
+	publishRepository := repository.NewPublishRepository(db)
+	service := NewContentService(contentRepository, publishRepository)
+
+	first, err := service.Upload(context.Background(), "sample.md", []byte("# Title\n\nbody"))
+	if err != nil {
+		t.Fatalf("first Upload() error = %v", err)
+	}
+
+	_, err = service.Upload(context.Background(), "sample-copy.md", []byte("# Title\n\nbody"))
+	if !errors.Is(err, ErrValidation) {
+		t.Fatalf("second Upload() error = %v, want validation error", err)
+	}
+	if !strings.Contains(err.Error(), first.ID) {
+		t.Fatalf("second Upload() error = %v, want existing content id", err)
+	}
+}
+
+func TestContentServiceUploadAllowsDifferentBodyHash(t *testing.T) {
+	db := openTestDB(t)
+	contentRepository := repository.NewContentRepository(db)
+	publishRepository := repository.NewPublishRepository(db)
+	service := NewContentService(contentRepository, publishRepository)
+
+	if _, err := service.Upload(context.Background(), "a.md", []byte("# Title\n\nbody a")); err != nil {
+		t.Fatalf("first Upload() error = %v", err)
+	}
+	if _, err := service.Upload(context.Background(), "b.md", []byte("# Title\n\nbody b")); err != nil {
+		t.Fatalf("second Upload() error = %v", err)
 	}
 }
 
