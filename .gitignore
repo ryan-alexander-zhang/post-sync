@@ -1,5 +1,6 @@
 .DS_Store
 .env
+.logs
 backend/.cache
 backend/data
 frontend/.next
