@@ -22,3 +22,16 @@ func TestParseMarkdownDropsFrontmatterAndNormalizesBody(t *testing.T) {
 		t.Fatal("BodyHash should not be empty")
 	}
 }
+
+func TestParseMarkdownDoesNotInferTitleFromBody(t *testing.T) {
+	input := []byte("# Body Heading\n\nContent")
+
+	parsed, err := ParseMarkdown(input)
+	if err != nil {
+		t.Fatalf("ParseMarkdown() error = %v", err)
+	}
+
+	if parsed.Title != "" {
+		t.Fatalf("Title = %q, want empty", parsed.Title)
+	}
+}

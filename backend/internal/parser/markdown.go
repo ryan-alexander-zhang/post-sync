@@ -41,9 +41,6 @@ func ParseMarkdown(raw []byte) (ParsedMarkdown, error) {
 	}
 
 	title := firstString(frontmatter["title"])
-	if title == "" {
-		title = inferTitle(body)
-	}
 
 	return ParsedMarkdown{
 		Title:           title,
@@ -106,17 +103,6 @@ func toPlainText(input string) string {
 func hash(input string) string {
 	sum := sha256.Sum256([]byte(input))
 	return hex.EncodeToString(sum[:])
-}
-
-func inferTitle(body string) string {
-	lines := strings.Split(body, "\n")
-	for _, line := range lines {
-		candidate := strings.TrimSpace(strings.TrimPrefix(line, "#"))
-		if candidate != "" {
-			return candidate
-		}
-	}
-	return ""
 }
 
 func firstString(value any) string {
