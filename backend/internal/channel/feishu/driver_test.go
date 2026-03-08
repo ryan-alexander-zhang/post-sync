@@ -297,6 +297,9 @@ func TestPersonalRenderUsesTextMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Render() error = %v", err)
 	}
+	if rendered.Title != "Weekly Update" {
+		t.Fatalf("Title = %q", rendered.Title)
+	}
 	if rendered.Body != "Weekly Update\n\nHello team" {
 		t.Fatalf("Body = %q", rendered.Body)
 	}
