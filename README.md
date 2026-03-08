@@ -136,6 +136,12 @@ npm install --prefix frontend
 npm run dev --prefix frontend
 ```
 
+如果前端开发态出现 `.next` 缓存损坏、样式丢失或 `ENOENT app-build-manifest.json` 这类问题，可直接重启：
+
+```bash
+./scripts/restart-frontend-dev.sh
+```
+
 默认访问：
 
 - API: `http://localhost:8080`
