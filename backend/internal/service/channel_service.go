@@ -76,7 +76,7 @@ func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelA
 		SecretRef: input.SecretRef,
 		Config:    input.Config,
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
 	}
 
 	configJSON, err := marshalConfig(input.Config)
@@ -137,7 +137,7 @@ func (s *ChannelService) UpdateAccount(ctx context.Context, id string, input Upd
 		SecretRef: account.SecretRef,
 		Config:    accountConfigMap(account.ConfigJSON, input.Config),
 	}); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
 	}
 
 	if err := s.channelRepository.UpdateAccount(ctx, account); err != nil {
