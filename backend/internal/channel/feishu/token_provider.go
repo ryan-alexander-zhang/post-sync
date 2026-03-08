@@ -55,7 +55,7 @@ func (p *TokenProvider) GetTenantAccessToken(ctx context.Context, account channe
 
 	baseURL := strings.TrimSpace(stringValue(account.Config["baseUrl"]))
 	if baseURL == "" {
-		baseURL = "https://open.feishu.cn"
+		baseURL = defaultBaseURL
 	}
 
 	cacheKey := fmt.Sprintf("%s|%s", strings.TrimRight(baseURL, "/"), appID)

@@ -1,6 +1,6 @@
 import { ChannelAccount, ChannelTarget } from "@/lib/types";
 
-export type SupportedChannelType = "telegram" | "feishu";
+export type SupportedChannelType = "telegram" | "feishu" | "personal_feishu";
 
 export type TelegramTargetConfig = {
   chatId?: string;
@@ -14,11 +14,13 @@ export type FeishuAccountConfig = {
   appIdEnv?: string;
   tokenEnv?: string;
   baseUrl?: string;
+  webhookUrl?: string;
 };
 
 export type FeishuTargetConfig = {
   receiveIdType?: string;
   chatId?: string;
+  webhookUrl?: string;
 };
 
 export const CHANNEL_OPTIONS: Array<{
@@ -35,9 +37,15 @@ export const CHANNEL_OPTIONS: Array<{
   },
   {
     value: "feishu",
-    label: "Feishu",
+    label: "Enterprise Feishu",
     description: "Use app credentials to fetch tenant access tokens.",
     defaultSecretRef: "FEISHU_APP_SECRET",
+  },
+  {
+    value: "personal_feishu",
+    label: "Personal Feishu",
+    description: "Use a webhook URL from a personal/custom Feishu bot.",
+    defaultSecretRef: "",
   },
 ];
 
@@ -67,6 +75,17 @@ export function buildChannelAccountPayload(channelType: SupportedChannelType, fo
     };
   }
 
+  if (channelType === "personal_feishu") {
+    return {
+      channelType,
+      name: formData.get("name"),
+      secretRef: "",
+      config: {
+        webhookUrl: formData.get("webhookUrl"),
+      },
+    };
+  }
+
   return {
     channelType,
     name: formData.get("name"),
@@ -86,6 +105,16 @@ export function buildChannelTargetPayload(account: ChannelAccount | undefined, f
         receiveIdType: "chat_id",
         chatId: formData.get("targetKey"),
       },
+    };
+  }
+
+  if (account?.channelType === "personal_feishu") {
+    return {
+      channelAccountId: formData.get("channelAccountId"),
+      targetType: "personal_feishu_webhook",
+      targetKey: "",
+      targetName: formData.get("targetName"),
+      config: {},
     };
   }
 
@@ -111,9 +140,17 @@ export function describeTarget(target: ChannelTarget) {
   if (target.targetType === "feishu_chat") {
     const feishu = parseFeishuTargetConfig(target.configJson);
     return {
-      channelLabel: "Feishu",
+      channelLabel: "Enterprise Feishu",
       primary: feishu.chatId || target.targetKey,
       secondary: "Chat",
+    };
+  }
+
+  if (target.targetType === "personal_feishu_webhook") {
+    return {
+      channelLabel: "Personal Feishu",
+      primary: "Webhook bot",
+      secondary: "Webhook",
     };
   }
 

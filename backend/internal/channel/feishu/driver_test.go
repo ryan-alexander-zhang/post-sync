@@ -1,10 +1,11 @@
 package feishu
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -37,40 +38,38 @@ func TestSendUsesTenantAccessTokenFlow(t *testing.T) {
 	t.Setenv("FEISHU_APP_ID", "cli_test")
 	t.Setenv("FEISHU_APP_SECRET", "secret_test")
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/open-apis/auth/v3/tenant_access_token/internal":
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"code":0,"msg":"ok","tenant_access_token":"t-token","expire":7200}`))
-		case "/open-apis/im/v1/messages":
-			if got := r.Header.Get("Authorization"); got != "Bearer t-token" {
-				t.Fatalf("Authorization = %q", got)
-			}
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			switch r.URL.Path {
+			case "/open-apis/auth/v3/tenant_access_token/internal":
+				return jsonResponse(http.StatusOK, `{"code":0,"msg":"ok","tenant_access_token":"t-token","expire":7200}`), nil
+			case "/open-apis/im/v1/messages":
+				if got := r.Header.Get("Authorization"); got != "Bearer t-token" {
+					t.Fatalf("Authorization = %q", got)
+				}
 
-			var payload map[string]any
-			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-				t.Fatalf("Decode() error = %v", err)
-			}
-			if payload["receive_id"] != "oc_123" {
-				t.Fatalf("receive_id = %v", payload["receive_id"])
-			}
-			if payload["msg_type"] != "post" {
-				t.Fatalf("msg_type = %v", payload["msg_type"])
-			}
-			content, _ := payload["content"].(string)
-			if !strings.Contains(content, "\"tag\":\"md\"") || !strings.Contains(content, "hello") {
-				t.Fatalf("content = %q", content)
-			}
+				var payload map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					t.Fatalf("Decode() error = %v", err)
+				}
+				if payload["receive_id"] != "oc_123" {
+					t.Fatalf("receive_id = %v", payload["receive_id"])
+				}
+				if payload["msg_type"] != "post" {
+					t.Fatalf("msg_type = %v", payload["msg_type"])
+				}
+				content, _ := payload["content"].(string)
+				if !strings.Contains(content, "\"tag\":\"md\"") || !strings.Contains(content, "hello") {
+					t.Fatalf("content = %q", content)
+				}
 
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"code":0,"msg":"ok","data":{"message_id":"om_123"}}`))
-		default:
-			t.Fatalf("unexpected path %s", r.URL.Path)
-		}
-	}))
-	defer server.Close()
-
-	client := server.Client()
+				return jsonResponse(http.StatusOK, `{"code":0,"msg":"ok","data":{"message_id":"om_123"}}`), nil
+			default:
+				t.Fatalf("unexpected path %s", r.URL.Path)
+				return nil, nil
+			}
+		}),
+	}
 	driver := New(client, NewTokenProvider(client))
 
 	result, err := driver.Send(context.Background(), channel.SendRequest{
@@ -79,7 +78,7 @@ func TestSendUsesTenantAccessTokenFlow(t *testing.T) {
 			SecretRef: "FEISHU_APP_SECRET",
 			Config: map[string]any{
 				"appIdEnv": "FEISHU_APP_ID",
-				"baseUrl":  server.URL,
+				"baseUrl":  "https://example.com",
 			},
 		},
 		Target: channel.Target{
@@ -101,6 +100,92 @@ func TestSendUsesTenantAccessTokenFlow(t *testing.T) {
 	}
 }
 
+func TestPersonalNormalizeTargetUsesWebhookHash(t *testing.T) {
+	driver := NewPersonal(nil)
+
+	normalized, err := driver.NormalizeTarget(channel.TargetInput{
+		TargetName: "Personal Bot",
+		Config: map[string]any{
+			"webhookUrl": "https://example.com/bot/hook/test",
+		},
+	})
+	if err != nil {
+		t.Fatalf("NormalizeTarget() error = %v", err)
+	}
+
+	if normalized.TargetType != domain.TargetTypePersonalFeishuWebhook {
+		t.Fatalf("TargetType = %q", normalized.TargetType)
+	}
+	if !strings.HasPrefix(normalized.TargetKey, "webhook:") {
+		t.Fatalf("TargetKey = %q", normalized.TargetKey)
+	}
+	if normalized.Config["webhookUrl"] != "https://example.com/bot/hook/test" {
+		t.Fatalf("webhookUrl = %#v", normalized.Config["webhookUrl"])
+	}
+}
+
+func TestPersonalSendUsesWebhook(t *testing.T) {
+	client := &http.Client{
+		Transport: roundTripFunc(func(r *http.Request) (*http.Response, error) {
+			if r.Method != http.MethodPost {
+				t.Fatalf("method = %s", r.Method)
+			}
+
+			var payload map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+				t.Fatalf("Decode() error = %v", err)
+			}
+			if payload["msg_type"] != "text" {
+				t.Fatalf("msg_type = %v", payload["msg_type"])
+			}
+
+			content, _ := payload["content"].(map[string]any)
+			if content["text"] != "Weekly Update\n\nhello" {
+				t.Fatalf("content.text = %#v", content["text"])
+			}
+
+			return jsonResponse(http.StatusOK, `{"code":0,"msg":"ok"}`), nil
+		}),
+	}
+
+	driver := NewPersonal(client)
+	result, err := driver.Send(context.Background(), channel.SendRequest{
+		Account: channel.Account{
+			Type: domain.ChannelTypePersonalFeishu,
+			Config: map[string]any{
+				"webhookUrl": "https://example.com/webhook",
+			},
+		},
+		Target: channel.Target{
+			Type: domain.TargetTypePersonalFeishuWebhook,
+			Key:  buildWebhookTargetKey("https://example.com/webhook"),
+		},
+		Body: "Weekly Update\n\nhello",
+	})
+	if err != nil {
+		t.Fatalf("Send() error = %v", err)
+	}
+	if !strings.HasPrefix(result.ExternalMessageID, "webhook:") {
+		t.Fatalf("ExternalMessageID = %q", result.ExternalMessageID)
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) {
+	return f(r)
+}
+
+func jsonResponse(statusCode int, body string) *http.Response {
+	return &http.Response{
+		StatusCode: statusCode,
+		Header: http.Header{
+			"Content-Type": []string{"application/json"},
+		},
+		Body: io.NopCloser(bytes.NewBufferString(body)),
+	}
+}
+
 func TestValidateAccountAcceptsStaticTokenEnv(t *testing.T) {
 	t.Setenv("FEISHU_TENANT_ACCESS_TOKEN", "t-static")
 
@@ -109,6 +194,19 @@ func TestValidateAccountAcceptsStaticTokenEnv(t *testing.T) {
 		SecretRef: "FEISHU_APP_SECRET",
 		Config: map[string]any{
 			"tokenEnv": "FEISHU_TENANT_ACCESS_TOKEN",
+		},
+	})
+	if err != nil {
+		t.Fatalf("ValidateAccount() error = %v", err)
+	}
+}
+
+func TestPersonalValidateAccountRequiresWebhook(t *testing.T) {
+	driver := NewPersonal(nil)
+
+	err := driver.ValidateAccount(channel.AccountValidationInput{
+		Config: map[string]any{
+			"webhookUrl": "https://example.com/hook",
 		},
 	})
 	if err != nil {
@@ -185,6 +283,24 @@ func TestRenderStripsDuplicatedMarkdownHeading(t *testing.T) {
 		t.Fatalf("Body = %q", rendered.Body)
 	}
 	if rendered.RenderMode != domain.RenderModeFeishuPost {
+		t.Fatalf("RenderMode = %q", rendered.RenderMode)
+	}
+}
+
+func TestPersonalRenderUsesTextMode(t *testing.T) {
+	driver := NewPersonal(nil)
+
+	rendered, err := driver.Render(channel.RenderInput{
+		ContentTitle: "Weekly Update",
+		ContentBody:  "# Weekly Update\n\nHello team",
+	})
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if rendered.Body != "Weekly Update\n\nHello team" {
+		t.Fatalf("Body = %q", rendered.Body)
+	}
+	if rendered.RenderMode != domain.RenderModeFeishuText {
 		t.Fatalf("RenderMode = %q", rendered.RenderMode)
 	}
 }

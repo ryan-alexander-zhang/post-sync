@@ -56,17 +56,19 @@ export function ChannelAccountForm() {
         ))}
       </Select>
       <Input name="name" placeholder="Account name" required />
-      <Input
-        autoCapitalize="off"
-        autoCorrect="off"
-        defaultValue={
-          CHANNEL_OPTIONS.find((option) => option.value === channelType)?.defaultSecretRef
-        }
-        key={channelType}
-        name="secretRef"
-        placeholder="Secret env ref"
-        required
-      />
+      {channelType !== "personal_feishu" ? (
+        <Input
+          autoCapitalize="off"
+          autoCorrect="off"
+          defaultValue={
+            CHANNEL_OPTIONS.find((option) => option.value === channelType)?.defaultSecretRef
+          }
+          key={channelType}
+          name="secretRef"
+          placeholder="Secret env ref"
+          required
+        />
+      ) : null}
       {channelType === "feishu" ? (
         <>
           <Input
@@ -92,12 +94,23 @@ export function ChannelAccountForm() {
           />
         </>
       ) : null}
+      {channelType === "personal_feishu" ? (
+        <Input
+          autoCapitalize="off"
+          autoCorrect="off"
+          name="webhookUrl"
+          placeholder="https://open.feishu.cn/open-apis/bot/v2/hook/..."
+          required
+        />
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-foreground/65">
           {message ||
             (channelType === "feishu"
-              ? "Feishu uses FEISHU_APP_ID + FEISHU_APP_SECRET by default, with optional FEISHU_TENANT_ACCESS_TOKEN override."
-              : "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef.")}
+              ? "Enterprise Feishu uses FEISHU_APP_ID + FEISHU_APP_SECRET by default, with optional FEISHU_TENANT_ACCESS_TOKEN override."
+              : channelType === "personal_feishu"
+                ? "Personal Feishu only needs a webhook URL from the custom bot."
+                : "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef.")}
         </p>
         <Button disabled={isPending} type="submit">
           {isPending ? "Saving..." : "Add account"}

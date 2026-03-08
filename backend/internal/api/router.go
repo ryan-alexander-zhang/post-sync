@@ -41,6 +41,7 @@ func NewRouter(database *gorm.DB, cfg config.Config) *gin.Engine {
 	driverRegistry := channel.NewRegistry(
 		telegram.New(),
 		feishu.New(feishuClient, feishuTokenProvider),
+		feishu.NewPersonal(feishuClient),
 	)
 
 	contentService := service.NewContentService(contentRepository, publishRepository)

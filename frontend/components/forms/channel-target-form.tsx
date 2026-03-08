@@ -58,16 +58,18 @@ export function ChannelTargetForm({ accounts }: { accounts: ChannelAccount[] }) 
         ))}
       </Select>
       <Input name="targetName" placeholder="Target name" required />
-      <Input
-        name="targetKey"
-        placeholder={
-          selectedAccount?.channelType === "feishu"
-            ? "Feishu chat id"
-            : "Telegram group chat id"
-        }
-        required
-      />
-      {selectedAccount?.channelType !== "feishu" ? (
+      {selectedAccount?.channelType !== "personal_feishu" ? (
+        <Input
+          name="targetKey"
+          placeholder={
+            selectedAccount?.channelType === "feishu"
+              ? "Feishu chat id"
+              : "Telegram group chat id"
+          }
+          required
+        />
+      ) : null}
+      {selectedAccount?.channelType === "telegram" ? (
         <>
           <Input name="topicName" placeholder="Topic name (optional)" />
           <Input name="topicId" placeholder="Topic id / message_thread_id (optional)" />
@@ -77,8 +79,10 @@ export function ChannelTargetForm({ accounts }: { accounts: ChannelAccount[] }) 
         <p className="text-sm text-foreground/65">
           {message ||
             (selectedAccount?.channelType === "feishu"
-              ? "Feishu targets currently support chat_id group delivery."
-              : "Leave topic fields empty to publish to the group root, or fill topic id to target a specific topic.")}
+              ? "Enterprise Feishu targets currently support chat_id group delivery."
+              : selectedAccount?.channelType === "personal_feishu"
+                ? "Personal Feishu targets reuse the webhook URL configured on the account."
+                : "Leave topic fields empty to publish to the group root, or fill topic id to target a specific topic.")}
         </p>
         <Button disabled={isPending || accounts.length === 0} type="submit">
           {isPending ? "Saving..." : "Add target"}

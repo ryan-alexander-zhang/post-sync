@@ -3,6 +3,8 @@ package feishu
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,6 +15,8 @@ import (
 	"github.com/erpang/post-sync/internal/channel"
 	"github.com/erpang/post-sync/internal/domain"
 )
+
+const defaultBaseURL = "https://open.feishu.cn"
 
 type Driver struct {
 	client        *http.Client
@@ -40,7 +44,7 @@ func (d *Driver) Type() string {
 func (d *Driver) ValidateAccount(input channel.AccountValidationInput) error {
 	secretRef := strings.TrimSpace(input.SecretRef)
 	if secretRef == "" {
-		return fmt.Errorf("feishu secretRef is required")
+		return fmt.Errorf("feishu enterprise secretRef is required")
 	}
 
 	if tokenEnv := strings.TrimSpace(stringValue(input.Config["tokenEnv"])); tokenEnv != "" {
@@ -86,11 +90,7 @@ func (d *Driver) NormalizeTarget(input channel.TargetInput) (channel.NormalizedT
 }
 
 func (d *Driver) Render(input channel.RenderInput) (channel.RenderedMessage, error) {
-	return channel.RenderedMessage{
-		Title:      input.ContentTitle,
-		Body:       stripDuplicatedTitle(input.ContentTitle, input.ContentBody),
-		RenderMode: domain.RenderModeFeishuPost,
-	}, nil
+	return renderPostMessage(input), nil
 }
 
 func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel.SendResult, error) {
@@ -101,7 +101,7 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 
 	baseURL := strings.TrimSpace(stringValue(request.Account.Config["baseUrl"]))
 	if baseURL == "" {
-		baseURL = "https://open.feishu.cn"
+		baseURL = defaultBaseURL
 	}
 
 	receiveID := request.Target.Key
@@ -151,11 +151,9 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 	defer response.Body.Close()
 
 	var rawBody bytes.Buffer
-	reader := bytes.NewBuffer(nil)
-	if _, err := reader.ReadFrom(response.Body); err != nil {
+	if _, err := rawBody.ReadFrom(response.Body); err != nil {
 		return channel.SendResult{}, err
 	}
-	rawBody = *reader
 
 	var payloadResponse struct {
 		Code int    `json:"code"`
@@ -181,6 +179,134 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 
 	return channel.SendResult{
 		ExternalMessageID: payloadResponse.Data.MessageID,
+		ProviderResponse:  rawBody.String(),
+	}, nil
+}
+
+type PersonalDriver struct {
+	client *http.Client
+}
+
+func NewPersonal(client *http.Client) *PersonalDriver {
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	return &PersonalDriver{client: client}
+}
+
+func (d *PersonalDriver) Type() string {
+	return domain.ChannelTypePersonalFeishu
+}
+
+func (d *PersonalDriver) ValidateAccount(input channel.AccountValidationInput) error {
+	if strings.TrimSpace(stringValue(input.Config["webhookUrl"])) == "" {
+		return fmt.Errorf("personal feishu webhookUrl is required")
+	}
+	return nil
+}
+
+func (d *PersonalDriver) NormalizeTarget(input channel.TargetInput) (channel.NormalizedTarget, error) {
+	webhookURL := strings.TrimSpace(stringValue(input.Config["webhookUrl"]))
+	if webhookURL == "" {
+		webhookURL = strings.TrimSpace(input.TargetKey)
+	}
+	if webhookURL == "" {
+		return channel.NormalizedTarget{}, fmt.Errorf("personal feishu webhook url is required")
+	}
+
+	targetType := strings.TrimSpace(input.TargetType)
+	if targetType == "" {
+		targetType = domain.TargetTypePersonalFeishuWebhook
+	}
+	if targetType != domain.TargetTypePersonalFeishuWebhook {
+		return channel.NormalizedTarget{}, fmt.Errorf("unsupported personal feishu target type")
+	}
+
+	return channel.NormalizedTarget{
+		TargetType: targetType,
+		TargetKey:  buildWebhookTargetKey(webhookURL),
+		Config: map[string]any{
+			"webhookUrl": webhookURL,
+		},
+	}, nil
+}
+
+func (d *PersonalDriver) Render(input channel.RenderInput) (channel.RenderedMessage, error) {
+	body := stripDuplicatedTitle(input.ContentTitle, input.ContentBody)
+	text := strings.TrimSpace(body)
+	title := strings.TrimSpace(input.ContentTitle)
+	if title != "" && text != "" {
+		text = title + "\n\n" + text
+	} else if title != "" {
+		text = title
+	}
+
+	return channel.RenderedMessage{
+		Title:      title,
+		Body:       text,
+		RenderMode: domain.RenderModeFeishuText,
+	}, nil
+}
+
+func (d *PersonalDriver) Send(ctx context.Context, request channel.SendRequest) (channel.SendResult, error) {
+	webhookURL := strings.TrimSpace(stringValue(request.Target.Config["webhookUrl"]))
+	if webhookURL == "" {
+		webhookURL = strings.TrimSpace(stringValue(request.Account.Config["webhookUrl"]))
+	}
+	if webhookURL == "" {
+		return channel.SendResult{}, fmt.Errorf("personal feishu webhook url is required")
+	}
+
+	payloadBody, err := json.Marshal(map[string]any{
+		"msg_type": "text",
+		"content": map[string]string{
+			"text": request.Body,
+		},
+	})
+	if err != nil {
+		return channel.SendResult{}, err
+	}
+
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(payloadBody))
+	if err != nil {
+		return channel.SendResult{}, err
+	}
+	httpRequest.Header.Set("Content-Type", "application/json; charset=utf-8")
+
+	response, err := d.client.Do(httpRequest)
+	if err != nil {
+		return channel.SendResult{}, err
+	}
+	defer response.Body.Close()
+
+	var rawBody bytes.Buffer
+	if _, err := rawBody.ReadFrom(response.Body); err != nil {
+		return channel.SendResult{}, err
+	}
+
+	var payloadResponse struct {
+		Code    int    `json:"code"`
+		Message string `json:"msg"`
+		Status  string `json:"StatusMessage"`
+	}
+	if err := json.Unmarshal(rawBody.Bytes(), &payloadResponse); err != nil {
+		return channel.SendResult{}, err
+	}
+
+	if response.StatusCode >= 400 || payloadResponse.Code != 0 {
+		message := strings.TrimSpace(payloadResponse.Message)
+		if message == "" {
+			message = strings.TrimSpace(payloadResponse.Status)
+		}
+		if message == "" {
+			message = "unknown error"
+		}
+		return channel.SendResult{}, fmt.Errorf("personal feishu send failed: code=%d msg=%s", payloadResponse.Code, message)
+	}
+
+	return channel.SendResult{
+		ExternalMessageID: buildWebhookTargetKey(webhookURL),
 		ProviderResponse:  rawBody.String(),
 	}, nil
 }
@@ -229,4 +355,17 @@ func stripDuplicatedTitle(title, body string) string {
 	}
 
 	return trimmedBody
+}
+
+func renderPostMessage(input channel.RenderInput) channel.RenderedMessage {
+	return channel.RenderedMessage{
+		Title:      input.ContentTitle,
+		Body:       stripDuplicatedTitle(input.ContentTitle, input.ContentBody),
+		RenderMode: domain.RenderModeFeishuPost,
+	}
+}
+
+func buildWebhookTargetKey(webhookURL string) string {
+	sum := sha256.Sum256([]byte(strings.TrimSpace(webhookURL)))
+	return "webhook:" + hex.EncodeToString(sum[:8])
 }

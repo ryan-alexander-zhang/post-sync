@@ -61,8 +61,8 @@ func (s *ChannelService) ListAccounts(ctx context.Context) ([]domain.ChannelAcco
 }
 
 func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelAccountInput) (*domain.ChannelAccount, error) {
-	if strings.TrimSpace(input.ChannelType) == "" || strings.TrimSpace(input.Name) == "" || strings.TrimSpace(input.SecretRef) == "" {
-		return nil, fmt.Errorf("%w: channelType, name and secretRef are required", ErrValidation)
+	if strings.TrimSpace(input.ChannelType) == "" || strings.TrimSpace(input.Name) == "" {
+		return nil, fmt.Errorf("%w: channelType and name are required", ErrValidation)
 	}
 
 	input.SecretRef = strings.TrimSpace(input.SecretRef)
@@ -152,8 +152,8 @@ func (s *ChannelService) ListTargets(ctx context.Context) ([]domain.ChannelTarge
 }
 
 func (s *ChannelService) CreateTarget(ctx context.Context, input CreateChannelTargetInput) (*domain.ChannelTarget, error) {
-	if strings.TrimSpace(input.ChannelAccountID) == "" || strings.TrimSpace(input.TargetKey) == "" || strings.TrimSpace(input.TargetName) == "" {
-		return nil, fmt.Errorf("%w: channelAccountId, targetKey and targetName are required", ErrValidation)
+	if strings.TrimSpace(input.ChannelAccountID) == "" || strings.TrimSpace(input.TargetName) == "" {
+		return nil, fmt.Errorf("%w: channelAccountId and targetName are required", ErrValidation)
 	}
 
 	account, err := s.channelRepository.GetAccountByID(ctx, input.ChannelAccountID)
@@ -173,11 +173,16 @@ func (s *ChannelService) CreateTarget(ctx context.Context, input CreateChannelTa
 		enabled = *input.Enabled
 	}
 
+	targetConfig := input.Config
+	if account.ChannelType == domain.ChannelTypePersonalFeishu {
+		targetConfig = mergeConfig(parseConfig(account.ConfigJSON), input.Config)
+	}
+
 	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
 		TargetType: input.TargetType,
 		TargetKey:  input.TargetKey,
 		TargetName: input.TargetName,
-		Config:     input.Config,
+		Config:     targetConfig,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
@@ -237,6 +242,9 @@ func (s *ChannelService) UpdateTarget(ctx context.Context, id string, input Upda
 	}
 
 	configMap := targetConfigMap(target.ConfigJSON, input.Config)
+	if account.ChannelType == domain.ChannelTypePersonalFeishu {
+		configMap = mergeConfig(parseConfig(account.ConfigJSON), configMap)
+	}
 	normalizedTarget, err := driver.NormalizeTarget(channel.TargetInput{
 		TargetType: target.TargetType,
 		TargetKey:  target.TargetKey,
@@ -316,6 +324,17 @@ func targetConfigMap(currentConfigJSON string, override map[string]any) map[stri
 		return override
 	}
 	return parseConfig(currentConfigJSON)
+}
+
+func mergeConfig(base map[string]any, override map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range override {
+		merged[key] = value
+	}
+	return merged
 }
 
 func parseConfig(raw string) map[string]any {

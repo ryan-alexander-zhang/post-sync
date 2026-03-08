@@ -107,12 +107,20 @@ export default async function ChannelsPage() {
                   <tr key={account.id} className="group">
                     <TD className="font-medium">{account.name}</TD>
                     <TD>
-                      <Badge className="border-primary/20 bg-primary/10 text-primary">{account.channelType}</Badge>
+                      <Badge className="border-primary/20 bg-primary/10 text-primary">
+                        {account.channelType === "feishu"
+                          ? "Enterprise Feishu"
+                          : account.channelType === "personal_feishu"
+                            ? "Personal Feishu"
+                            : account.channelType}
+                      </Badge>
                     </TD>
-                    <TD className="font-mono text-xs text-foreground/62">{account.secretRef}</TD>
+                    <TD className="font-mono text-xs text-foreground/62">{account.secretRef || "-"}</TD>
                     <TD className="text-xs text-foreground/60">
                       {account.channelType === "feishu"
                         ? [feishu.appIdEnv, feishu.tokenEnv].filter(Boolean).join(" / ") || "-"
+                        : account.channelType === "personal_feishu"
+                          ? feishu.webhookUrl || "-"
                         : "-"}
                     </TD>
                     <TD>
