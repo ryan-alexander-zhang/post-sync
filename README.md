@@ -309,15 +309,22 @@ Target 规则：
 
 ## API 概览
 
-主要接口规划：
+完整接口说明见 [api.md](/Users/erpang/GitHubProjects/post-sync/api.md)。
+
+当前主要接口：
 
 - `POST /api/v1/contents/upload`
 - `GET /api/v1/contents`
 - `GET /api/v1/contents/:id`
+- `DELETE /api/v1/contents/:id`
 - `GET /api/v1/channel-accounts`
 - `POST /api/v1/channel-accounts`
+- `PATCH /api/v1/channel-accounts/:id`
+- `DELETE /api/v1/channel-accounts/:id`
 - `GET /api/v1/channel-targets`
 - `POST /api/v1/channel-targets`
+- `PATCH /api/v1/channel-targets/:id`
+- `DELETE /api/v1/channel-targets/:id`
 - `POST /api/v1/publish-jobs`
 - `GET /api/v1/publish-jobs`
 - `GET /api/v1/publish-jobs/:id`
