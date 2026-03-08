@@ -31,7 +31,11 @@ func (d *Driver) ValidateAccount(config map[string]any, secretRef string) error 
 }
 
 func (d *Driver) ValidateTarget(config map[string]any, targetKey string) error {
-	if strings.TrimSpace(targetKey) == "" {
+	chatID := strings.TrimSpace(targetKey)
+	if value, ok := config["chatId"].(string); ok && strings.TrimSpace(value) != "" {
+		chatID = strings.TrimSpace(value)
+	}
+	if chatID == "" {
 		return fmt.Errorf("telegram chat id is required")
 	}
 	return nil
@@ -61,6 +65,9 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 		"parse_mode":               "HTML",
 		"disable_web_page_preview": false,
 	}
+	if value, ok := request.Config["chatId"].(string); ok && strings.TrimSpace(value) != "" {
+		payload["chat_id"] = strings.TrimSpace(value)
+	}
 
 	if value, ok := request.Config["disableNotification"].(bool); ok {
 		payload["disable_notification"] = value
@@ -69,6 +76,9 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 		payload["disable_web_page_preview"] = value
 	}
 	if value, ok := request.Config["messageThreadId"].(float64); ok {
+		payload["message_thread_id"] = int(value)
+	}
+	if value, ok := request.Config["topicId"].(float64); ok && int(value) > 0 {
 		payload["message_thread_id"] = int(value)
 	}
 

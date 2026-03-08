@@ -173,26 +173,31 @@ func (s *ChannelService) CreateTarget(ctx context.Context, input CreateChannelTa
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
 	}
 
+	enabled := true
+	if input.Enabled != nil {
+		enabled = *input.Enabled
+	}
+
+	targetType := input.TargetType
+	targetKey := strings.TrimSpace(input.TargetKey)
 	configJSON, err := marshalConfig(input.Config)
 	if err != nil {
 		return nil, fmt.Errorf("%w: invalid config", ErrValidation)
 	}
-
-	targetType := input.TargetType
-	if strings.TrimSpace(targetType) == "" {
+	if account.ChannelType == domain.ChannelTypeTelegram {
+		targetKey, targetType, configJSON, err = normalizeTelegramTarget(input.TargetKey, input.TargetType, input.TargetName, input.Config)
+		if err != nil {
+			return nil, err
+		}
+	} else if strings.TrimSpace(targetType) == "" {
 		targetType = domain.TargetTypeTelegramGrp
-	}
-
-	enabled := true
-	if input.Enabled != nil {
-		enabled = *input.Enabled
 	}
 
 	target := &domain.ChannelTarget{
 		ID:               util.NewID(),
 		ChannelAccountID: account.ID,
 		TargetType:       targetType,
-		TargetKey:        strings.TrimSpace(input.TargetKey),
+		TargetKey:        targetKey,
 		TargetName:       strings.TrimSpace(input.TargetName),
 		Enabled:          enabled,
 		ConfigJSON:       configJSON,
@@ -242,6 +247,17 @@ func (s *ChannelService) UpdateTarget(ctx context.Context, id string, input Upda
 	}
 	if err := driver.ValidateTarget(configMap, target.TargetKey); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
+	}
+	if account.ChannelType == domain.ChannelTypeTelegram && input.Config != nil {
+		target.TargetKey, target.TargetType, target.ConfigJSON, err = normalizeTelegramTarget(
+			target.TargetKey,
+			target.TargetType,
+			target.TargetName,
+			input.Config,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := s.channelRepository.UpdateTarget(ctx, target); err != nil {

@@ -90,7 +90,8 @@ const (
 	DeliveryStatusFailed           = "FAILED"
 	DeliveryStatusSkippedDuplicate = "SKIPPED_DUPLICATE"
 
-	ChannelTypeTelegram   = "telegram"
-	TargetTypeTelegramGrp = "telegram_group"
-	RenderModeTelegram    = "telegram_html"
+	ChannelTypeTelegram    = "telegram"
+	TargetTypeTelegramGrp  = "telegram_group"
+	TargetTypeTelegramTopic = "telegram_topic"
+	RenderModeTelegram     = "telegram_html"
 )
