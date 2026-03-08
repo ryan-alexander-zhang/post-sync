@@ -6,6 +6,7 @@ import (
 
 	"github.com/erpang/post-sync/internal/api"
 	"github.com/erpang/post-sync/internal/config"
+	"github.com/erpang/post-sync/internal/db"
 )
 
 type App struct {
@@ -15,12 +16,16 @@ type App struct {
 
 func New() (*App, error) {
 	cfg := config.Load()
+	database, err := db.Open(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("open database: %w", err)
+	}
 
 	return &App{
 		config: cfg,
 		server: &http.Server{
 			Addr:         cfg.ServerAddr,
-			Handler:      api.NewRouter(),
+			Handler:      api.NewRouter(database),
 			ReadTimeout:  cfg.HTTPReadTimeout,
 			WriteTimeout: cfg.HTTPWriteTimeout,
 		},
