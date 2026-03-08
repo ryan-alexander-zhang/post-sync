@@ -21,6 +21,7 @@ func (h *ContentHandler) RegisterRoutes(group *gin.RouterGroup) {
 	group.POST("/contents/upload", h.Upload)
 	group.GET("/contents", h.List)
 	group.GET("/contents/:id", h.GetByID)
+	group.DELETE("/contents/:id", h.DeleteByID)
 }
 
 func (h *ContentHandler) Upload(c *gin.Context) {
@@ -74,4 +75,18 @@ func (h *ContentHandler) GetByID(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, content)
+}
+
+func (h *ContentHandler) DeleteByID(c *gin.Context) {
+	err := h.contentService.DeleteByID(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(c, http.StatusNotFound, "CONTENT_NOT_FOUND", "content not found")
+			return
+		}
+		writeServiceError(c, err)
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }

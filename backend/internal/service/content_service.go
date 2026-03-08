@@ -15,10 +15,17 @@ import (
 
 type ContentService struct {
 	contentRepository *repository.ContentRepository
+	publishRepository *repository.PublishRepository
 }
 
-func NewContentService(contentRepository *repository.ContentRepository) *ContentService {
-	return &ContentService{contentRepository: contentRepository}
+func NewContentService(
+	contentRepository *repository.ContentRepository,
+	publishRepository *repository.PublishRepository,
+) *ContentService {
+	return &ContentService{
+		contentRepository: contentRepository,
+		publishRepository: publishRepository,
+	}
 }
 
 func (s *ContentService) Upload(ctx context.Context, filename string, raw []byte) (*domain.Content, error) {
@@ -65,4 +72,28 @@ func (s *ContentService) GetByID(ctx context.Context, id string) (*domain.Conten
 		return nil, err
 	}
 	return content, nil
+}
+
+func (s *ContentService) DeleteByID(ctx context.Context, id string) error {
+	if strings.TrimSpace(id) == "" {
+		return fmt.Errorf("%w: content id is required", ErrValidation)
+	}
+
+	_, err := s.contentRepository.GetByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	hasJobs, err := s.publishRepository.HasJobsForContent(ctx, id)
+	if err != nil {
+		return err
+	}
+	if hasJobs {
+		return fmt.Errorf("%w: content with publish history cannot be deleted", ErrValidation)
+	}
+
+	return s.contentRepository.DeleteByID(ctx, id)
 }

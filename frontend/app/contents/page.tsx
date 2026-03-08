@@ -1,5 +1,6 @@
 import Link from "next/link";
 
+import { DeleteButton } from "@/components/forms/delete-button";
 import { Shell } from "@/components/layout/shell";
 import { ContentUploadForm } from "@/components/forms/content-upload-form";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +35,7 @@ export default async function ContentsPage() {
                 <TH>Source</TH>
                 <TH>Body hash</TH>
                 <TH>Created</TH>
+                <TH>Action</TH>
               </tr>
             </thead>
             <tbody>
@@ -47,6 +49,12 @@ export default async function ContentsPage() {
                   <TD>{item.sourceFilename}</TD>
                   <TD className="font-mono text-xs">{item.bodyHash}</TD>
                   <TD>{new Date(item.createdAt).toLocaleString()}</TD>
+                  <TD>
+                    <DeleteButton
+                      label={`content ${item.title || item.sourceFilename}`}
+                      path={`/contents/${item.id}`}
+                    />
+                  </TD>
                 </tr>
               ))}
             </tbody>

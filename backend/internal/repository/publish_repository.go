@@ -70,3 +70,11 @@ func (r *PublishRepository) ExistsSuccessfulDuplicate(ctx context.Context, chann
 		Count(&count).Error
 	return count > 0, err
 }
+
+func (r *PublishRepository) HasJobsForContent(ctx context.Context, contentID string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&domain.PublishJob{}).
+		Where("content_id = ?", contentID).
+		Count(&count).Error
+	return count > 0, err
+}

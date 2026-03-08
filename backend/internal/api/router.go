@@ -7,8 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
-	"github.com/erpang/post-sync/internal/repository"
 	"github.com/erpang/post-sync/internal/render"
+	"github.com/erpang/post-sync/internal/repository"
 	"github.com/erpang/post-sync/internal/service"
 )
 
@@ -35,7 +35,7 @@ func NewRouter(database *gorm.DB, cfg config.Config) *gin.Engine {
 	publishRepository := repository.NewPublishRepository(database)
 	driverRegistry := channel.NewRegistry(telegram.New())
 
-	contentService := service.NewContentService(contentRepository)
+	contentService := service.NewContentService(contentRepository, publishRepository)
 	channelService := service.NewChannelService(channelRepository, driverRegistry)
 	publishService := service.NewPublishService(
 		contentRepository,

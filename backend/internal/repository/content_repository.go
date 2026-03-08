@@ -35,3 +35,7 @@ func (r *ContentRepository) GetByID(ctx context.Context, id string) (*domain.Con
 	}
 	return &content, nil
 }
+
+func (r *ContentRepository) DeleteByID(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&domain.Content{}, "id = ?", id).Error
+}
