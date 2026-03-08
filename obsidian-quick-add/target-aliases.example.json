@@ -1,0 +1,9 @@
+{
+  "telegram.release-notes": ["telegram_target_id_release_notes"],
+  "telegram.general": ["telegram_target_id_general"],
+  "feishu.team-news": ["feishu_target_id_team_news"],
+  "all.announce": [
+    "telegram_target_id_release_notes",
+    "feishu_target_id_team_news"
+  ]
+}

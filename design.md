@@ -7,6 +7,7 @@
 当前明确约束如下：
 
 - 内容源为 Markdown 文本文件，允许包含 frontmatter 元信息。
+- 内容也允许来自 Obsidian 当前打开笔记，由 QuickAdd 脚本读取 frontmatter 后调用后端 API 上传并发布。
 - 系统内部需要统一抽象内容、渠道账号、渠道目标、发布任务、单渠道投递结果。
 - 去重逻辑必须基于“去除 Meta 后的正文内容”，而不是整篇原始文件。
 - MVP 当前实现 Telegram 群组 / Topic 与 Feishu 群聊富文本投递，但所有业务层接口按多渠道设计。
@@ -659,6 +660,18 @@ API 前缀统一为 `/api/v1`。
 
 - `GET /contents/:id`
   - 返回内容详情、frontmatter、正文预览
+
+Obsidian QuickAdd 集成约定：
+
+- QuickAdd 脚本读取当前笔记的顶层 frontmatter 字段：
+  - `post_title`
+  - `post_publish`
+  - `post_targets`
+  - `post_template`
+- `post_targets` 不直接写后端 target id，而是写本地 alias
+- QuickAdd 脚本通过 vault 内本地映射文件把 alias 解析成 `targetIds`
+- QuickAdd 上传前会去掉控制字段 `post_publish`、`post_targets`、`post_template`
+- 若存在 `post_title`，脚本会在上传内容 frontmatter 中写入 `title`，以兼容后端当前标题提取逻辑
 
 ### 12.2 Channel API
 
