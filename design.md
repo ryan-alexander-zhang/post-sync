@@ -20,7 +20,7 @@
 
 - 上传单个 Markdown 文件并持久化。
 - 解析 frontmatter 与正文，生成统一 Content Model。
-- 管理 Telegram 渠道账号与群组 target。
+- 管理 Telegram 渠道账号、群组 root target 与群组 topic target。
 - 选择一个内容并发布到一个或多个 Telegram target。
 - 多 target 并行投递，并记录每个投递项状态。
 - 基础模板渲染：支持系统字段、frontmatter 字段、渠道参数注入。
@@ -150,12 +150,12 @@ docs/
 
 ### 5.3 ChannelTarget
 
-表示账号下一个可投递的目标。
+表示账号下一个可投递的目标。对于 Telegram，target 可以是群组根节点，也可以是群组下某个 topic。
 
 - `id`
 - `channel_account_id`
-- `target_type`，MVP 固定为 `telegram_group`
-- `target_key`，Telegram 对应 chat id
+- `target_type`，MVP 支持 `telegram_group` 和 `telegram_topic`
+- `target_key`，Telegram 的逻辑目标键。群组 root 为 `chat_id`，topic 为 `chat_id:topic:topic_id`
 - `target_name`
 - `enabled`
 - `config_json`
@@ -229,7 +229,7 @@ type ChannelDriver interface {
 ### 6.2 抽象对象
 
 - `ChannelAccountConfig`：账号级配置，例如 bot token 引用、默认 parse mode。
-- `ChannelTargetConfig`：目标级参数，例如 chat id、是否静默发送。
+- `ChannelTargetConfig`：目标级参数，例如 chat id、topic id、是否静默发送。
 - `RenderInput`：内容、模板、系统字段、渠道字段组成的统一渲染输入。
 - `RenderedMessage`：标准化输出，包含 `title`、`body`、`render_mode`、`metadata`。
 - `SendRequest`：驱动最终发送入参。
@@ -241,10 +241,17 @@ type ChannelDriver interface {
 
 Telegram target 的 MVP 参数：
 
-- `target_key`: chat id
+- `chat_id`: Telegram 群组 chat id
+- `topic_id`: Telegram topic 对应的 `message_thread_id`，可选
+- `topic_name`: topic 展示名，可选
 - `disable_web_page_preview`
 - `disable_notification`
-- `message_thread_id`，预留论坛话题群组
+
+Telegram target 建模规则：
+
+- 群组根节点存为一个 `telegram_group` target，`target_key=chat_id`
+- 群组下每个 topic 存为一个独立 `telegram_topic` target，`target_key=chat_id:topic:topic_id`
+- 同一群组下可配置多个 topic target
 
 ### 6.4 新增渠道的扩展方式
 
@@ -431,6 +438,11 @@ MVP 默认在单次发布中自动重试最多 2 次，仅针对瞬时错误：
 
 则本次 Delivery 直接标记为 `SKIPPED_DUPLICATE`。
 
+说明：
+
+- Telegram 群组 root 与同一群组下不同 topic 的 `target_key` 不同
+- 因此同一正文允许在同一个群组的不同 topic 各发一次，不会互相去重
+
 ### 10.3 幂等键
 
 `idempotency_key = sha256(channel_type + ":" + target_key + ":" + body_hash)`
@@ -495,11 +507,11 @@ MVP 不直接用唯一索引阻止插入，因为：
 |---|---|---|
 | id | uuid / string | 主键 |
 | channel_account_id | uuid / string | 所属账号 |
-| target_type | varchar(50) | 目标类型 |
-| target_key | varchar(255) | 外部目标标识 |
+| target_type | varchar(50) | `telegram_group` 或 `telegram_topic` |
+| target_key | varchar(255) | 逻辑目标键，topic 目标为复合键 |
 | target_name | varchar(100) | 显示名称 |
 | enabled | bool | 是否启用 |
-| config_json | json/text | 目标参数 |
+| config_json | json/text | 目标参数，Telegram 包含 `chatId`、`topicId`、`topicName` |
 | created_at | timestamp | 创建时间 |
 | updated_at | timestamp | 更新时间 |
 
@@ -655,7 +667,7 @@ API 前缀统一为 `/api/v1`。
 - `/contents`：内容列表页。
 - `/contents/[id]`：内容详情页，展示 frontmatter、正文预览、body hash、发布按钮。
 - `/publish/new`：发起发布页，选择内容、目标、模板。
-- `/channels`：渠道账号和 target 管理页。
+- `/channels`：渠道账号和 target 管理页，支持配置 Group root 和多个 Topic target。
 - `/history`：发布历史页。
 - `/history/[jobId]`：任务详情页，查看单 target 状态、错误信息、外部消息 ID。
 
@@ -681,6 +693,7 @@ API 前缀统一为 `/api/v1`。
 
 - 上传成功后立即展示解析结果和 `body_hash`。
 - 发起发布时按 target 多选，并清晰提示可能被去重跳过。
+- 渠道页需要清楚展示某个 target 是 Group root 还是 Topic，以及所属的 `chat_id` / `topic_id`。
 - 历史页需要区分任务状态和单投递状态。
 - 失败投递提供“重试”按钮。
 
@@ -705,6 +718,12 @@ API 前缀统一为 `/api/v1`。
 - 自动重试：最多 2 次，指数退避 `1s -> 3s`
 - 手动重试：只允许针对 `FAILED` 的 `DeliveryTask`
 - `SKIPPED_DUPLICATE` 不允许重试，除非内容变化后创建新任务
+
+### 14.4 Telegram topic 投递规则
+
+- `telegram_group` target 发送到群组根节点，不携带 `message_thread_id`
+- `telegram_topic` target 发送到指定 topic，并携带 `message_thread_id=topic_id`
+- 同一个群组下不同 topic 的投递彼此独立，状态、去重、重试均分别计算
 
 ## 15. 配置与安全设计
 

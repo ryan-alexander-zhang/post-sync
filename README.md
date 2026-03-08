@@ -2,14 +2,14 @@
 
 `post-sync` 是一个面向 Markdown 内容源的内容分发器。用户可以将本地 Markdown 文件上传到系统，统一解析 frontmatter 与正文，再按模板发布到一个或多个外部渠道。
 
-当前版本定位为 MVP：先打通 Markdown -> 内容模型 -> 模板渲染 -> Telegram 群组投递 -> 历史查询 -> Docker 部署的最小闭环，并为后续新增渠道保留清晰扩展点。
+当前版本定位为 MVP：先打通 Markdown -> 内容模型 -> 模板渲染 -> Telegram 群组 / Topic 投递 -> 历史查询 -> Docker 部署的最小闭环，并为后续新增渠道保留清晰扩展点。
 
 ## 功能清单
 
 - 上传 Markdown 文本文件
 - 解析 YAML frontmatter 与正文
 - 生成统一 Content Model
-- 配置 Telegram 渠道账号与群组 target
+- 配置 Telegram 渠道账号、群组 root target 与 topic target
 - 选择一个内容发布到一个或多个 target
 - 并行投递并记录每个投递项状态
 - 基于正文标准化哈希进行去重
@@ -22,7 +22,7 @@
 当前实现目标：
 
 - 内容上传与解析
-- Telegram 群组投递
+- Telegram 群组 / Topic 投递
 - 基础模板渲染
 - 发布历史查询
 - Docker / docker-compose 部署
@@ -223,13 +223,14 @@ docker compose --profile postgres up -d
 ## 示例使用流程
 
 1. 在 `/channels` 配置一个 Telegram channel account，并指定 `secretRef=TELEGRAM_BOT_TOKEN`。
-2. 在 `/channels` 新增一个或多个 Telegram group target，填写群组 `chat_id`。
+2. 在 `/channels` 新增一个或多个 Telegram target，填写群组 `chat_id`；若要发到某个 topic，再补 `topic_id`。
 3. 在 `/contents` 上传 Markdown 文件。
 4. 系统解析 frontmatter，生成内容记录和 `body_hash`。
 5. 在 `/publish/new` 选择内容、target、模板，发起发布。
 6. 系统创建 `PublishJob` 和多个 `DeliveryTask` 并并行发送。
 7. 在 `/history` 查看任务状态，在 `/history/[jobId]` 查看每个 target 的结果。
 8. 若内容正文未变化，再次向同一 target 发布时会标记 `SKIPPED_DUPLICATE`。
+9. 同一群组下不同 topic 被视为不同 target，不会互相去重。
 
 ## 架构概览
 
@@ -237,7 +238,7 @@ docker compose --profile postgres up -d
 
 - `Content`：上传后的内容快照
 - `ChannelAccount`：渠道账号配置
-- `ChannelTarget`：可投递目标
+- `ChannelTarget`：可投递目标，Telegram 下既可以是 group root，也可以是 topic
 - `PublishJob`：一次发布任务
 - `DeliveryTask`：单 target 投递记录
 
@@ -255,6 +256,12 @@ docker compose --profile postgres up -d
 - 仅基于“去除 frontmatter 后的标准化正文”
 - 粒度为 `channel_type + target_key + body_hash`
 - 仅跳过历史上已经 `SUCCESS` 的重复投递
+
+Telegram target 规则：
+
+- group root 的 `target_key = chat_id`
+- topic target 的 `target_key = chat_id:topic:topic_id`
+- `config_json` 保存实际发送所需的 `chatId` / `topicId`
 
 ## API 概览
 
