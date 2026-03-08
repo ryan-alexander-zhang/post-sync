@@ -2,7 +2,7 @@
 
 `post-sync` 是一个面向 Markdown 内容源的内容分发器。用户可以将本地 Markdown 文件上传到系统，统一解析 frontmatter 与正文，再按模板发布到一个或多个外部渠道。
 
-当前版本定位为 MVP：先打通 Markdown -> 内容模型 -> 模板渲染 -> Telegram 群组 / Topic 与 Feishu 群聊投递 -> 历史查询 -> Docker 部署的最小闭环，并为后续新增渠道保留清晰扩展点。
+当前版本定位为 MVP：先打通 Markdown -> 内容模型 -> 模板渲染 -> Telegram 群组 / Topic 与 Feishu 群聊富文本投递 -> 历史查询 -> Docker 部署的最小闭环，并为后续新增渠道保留清晰扩展点。
 
 ## 功能清单
 
@@ -24,7 +24,7 @@
 
 - 内容上传与解析
 - Telegram 群组 / Topic 投递
-- Feishu 群聊投递
+- Feishu 群聊富文本投递
 - 基础模板渲染
 - 发布历史查询
 - Docker / docker-compose 部署

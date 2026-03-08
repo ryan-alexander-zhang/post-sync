@@ -9,7 +9,7 @@
 - 内容源为 Markdown 文本文件，允许包含 frontmatter 元信息。
 - 系统内部需要统一抽象内容、渠道账号、渠道目标、发布任务、单渠道投递结果。
 - 去重逻辑必须基于“去除 Meta 后的正文内容”，而不是整篇原始文件。
-- MVP 当前实现 Telegram 群组 / Topic 与 Feishu 群聊投递，但所有业务层接口按多渠道设计。
+- MVP 当前实现 Telegram 群组 / Topic 与 Feishu 群聊富文本投递，但所有业务层接口按多渠道设计。
 - 数据存储通过配置切换 SQLite 或 PostgreSQL，不允许业务层分叉。
 
 本方案目标不是一次性设计完整内容平台，而是为后续编码提供足够具体、可拆分实现的落地蓝图。
@@ -257,7 +257,7 @@ Telegram target 建模规则：
 
 ### 6.4 Feishu 在抽象中的实现
 
-Feishu 首版实现规则：
+Feishu 当前实现规则：
 
 - `ChannelAccount.channel_type = feishu`
 - `ChannelTarget.target_type = feishu_chat`
@@ -273,9 +273,11 @@ Feishu 首版实现规则：
 
 渲染策略：
 
-- 当前只实现 `text` 消息
 - 默认模板输出 Markdown 文本
-- Feishu driver 直接把模板结果封装为 `{"text":"..."}` 并发送
+- Feishu driver 将模板结果封装为 `msg_type=post`
+- `post.content` 目前使用单个 `md` 节点承载 Markdown 正文
+- 若存在 `title`，写入 `post.zh_cn.title`
+- 为避免重复，driver 会去掉默认模板里与标题相同的首个 `# title` 行
 
 ### 6.5 新增渠道的扩展方式
 
@@ -344,8 +346,9 @@ Telegram：
 Feishu：
 
 1. 模板产出 Markdown。
-2. 当前不做 HTML 转换。
-3. 直接封装为 `msg_type=text` 的 `content` JSON 字符串。
+2. 不做 HTML 转换，也不复用 Telegram HTML。
+3. 将 Markdown 正文封装为 `msg_type=post` 的 `md` 节点。
+4. 标题进入 `post.zh_cn.title`，正文进入 `post.zh_cn.content`。
 
 这样可以让模板层保持统一，而把平台差异压缩在 driver 内。
 
@@ -759,8 +762,9 @@ API 前缀统一为 `/api/v1`。
 
 - 若配置 `tokenEnv` 且环境变量存在，直接使用静态 `tenant_access_token`
 - 否则使用 `appIdEnv + secret_ref` 请求 `tenant_access_token`
-- 当前仅发送 `msg_type=text`
+- 当前发送 `msg_type=post`
 - `feishu_chat` target 使用 `chat_id` 作为 `target_key`
+- 当前富文本策略依赖飞书 `post` 的 `md` 标签支持，不手工拆分细粒度富文本节点
 
 ## 15. 配置与安全设计
 

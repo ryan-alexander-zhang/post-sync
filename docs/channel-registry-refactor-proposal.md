@@ -169,7 +169,7 @@ descriptors := []ChannelDescriptor{
 - `TargetTypeTelegramTopic`
 - `TargetTypeFeishuChat`
 - `RenderModeTelegram`
-- `RenderModeFeishuText`
+- `RenderModeFeishuPost`
 
 问题：
 

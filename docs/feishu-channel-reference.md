@@ -9,14 +9,14 @@
 
 ## 1. MVP 接入边界
 
-当前项目如果新增飞书渠道，建议先只支持以下最小能力：
+当前项目接入飞书渠道的最小可用能力：
 
 - 渠道类型：`feishu`
 - 目标类型：`feishu_chat`
 - 发送身份：应用机器人
 - 接收者类型：群聊 `chat_id`
-- 消息类型：`text`
-- 可选扩展：`post`
+- 消息类型：`post`
+- 富文本承载方式：`md` 节点
 
 当前不建议首版实现：
 
@@ -28,7 +28,7 @@
 
 原因：
 
-- 当前仓库的内容分发链路更适合先做“纯文本/富文本直发”
+- 当前仓库的内容分发链路更适合先做“统一 Markdown -> post + md”
 - 群聊 `chat_id` 是最接近当前 Telegram group target 的模型
 - 卡片、素材上传、模板变量类型校验会显著增加 MVP 复杂度
 
@@ -118,8 +118,8 @@
 ```json
 {
   "receive_id": "oc_xxx",
-  "msg_type": "text",
-  "content": "{\"text\":\"test content\"}",
+  "msg_type": "post",
+  "content": "{\"zh_cn\":{\"title\":\"标题\",\"content\":[[{\"tag\":\"md\",\"text\":\"# heading\\n\\nbody\"}]]}}",
   "uuid": "dedup-uuid-optional"
 }
 ```
@@ -127,7 +127,7 @@
 当前项目映射建议：
 
 - `receive_id` <- `ChannelTarget.targetKey`
-- `msg_type` <- 渠道渲染结果决定，首版固定 `text`
+- `msg_type` <- 渠道渲染结果决定，当前固定 `post`
 - `content` <- 渲染后的飞书消息 JSON 再序列化为字符串
 - `uuid` <- 可复用当前 delivery 的幂等键，建议截断到 50 字符以内
 
@@ -149,7 +149,7 @@
 - 部分样式标签
 - Markdown 风格超链接 `[text](url)`
 
-适合作为当前项目首版的原因：
+适合作为降级兜底能力的原因：
 
 - 最容易从 Markdown 正文降级得到稳定输出
 - 不需要多语言结构
@@ -190,34 +190,35 @@
 
 对当前项目的结论：
 
-- 飞书渠道首版可以只做 `text`
-- 第二阶段再考虑 `post`
-- 如果实现 `post`，最简单路径是把 Markdown body 映射为一个或多个 `md` 节点，而不是手工拆成细粒度 `text/a/at/...` 节点
+- 当前实现采用 `post + md`
+- 最简单且最稳的路径是把 Markdown body 映射为一个或多个 `md` 节点，而不是手工拆成细粒度 `text/a/at/...` 节点
+- 若后续需要图片、@ 用户精细控制、混排卡片元素，再扩展为节点级转换
 
 ## 8. 渲染链路建议
 
 飞书渠道建议新增独立渲染模式：
 
-- `RenderMode = "feishu_text"` 或 `RenderMode = "feishu_post"`
+- `RenderMode = "feishu_post"`
 
-推荐首版渲染策略：
+当前推荐渲染策略：
 
 1. 使用现有统一模板上下文生成中间文本
 2. 渠道驱动将文本封装为：
-   - `msg_type = "text"`
-   - `content = {"text":"..."}`
+   - `msg_type = "post"`
+   - `content = {"zh_cn":{"title":"...","content":[[{"tag":"md","text":"..."}]]}}`
 3. 发送前再做 JSON 序列化
 
 推荐的保守转换规则：
 
 - 保留换行
+- 保留列表、引用、代码块等飞书 `md` 支持的 Markdown 子集
 - 保留 `#tag` 文本
 - 不主动输出 HTML
 - 不尝试把 Telegram HTML 直接复用到飞书
 
 原因：
 
-- 飞书 `text` 支持的是文本 + 部分样式语法，不是 Telegram HTML
+- 飞书 `post/md` 支持的 Markdown 子集已经足以覆盖当前 MVP 的富文本目标
 - 当前项目的 Telegram 渲染链路不能直接复用到飞书发送 payload
 
 ## 9. 错误码与排查重点

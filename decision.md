@@ -319,21 +319,22 @@ Telegram 推荐发送 HTML 或 MarkdownV2。MarkdownV2 需要大量转义，MVP 
 - 需要补一层 Telegram HTML sanitizer。
 - 某些复杂 Markdown 语法可能被降级或忽略。
 
-## 决策 6A：Feishu 首版消息类型固定为 `text`
+## 决策 6A：Feishu MVP 消息类型采用 `post + md`
 
 ### 标题
 
-Feishu 渠道首版只支持发送 `msg_type=text`，不在当前阶段实现 `post` 或 `interactive`。
+Feishu 渠道在 MVP 阶段采用 `msg_type=post`，并把统一模板产出的 Markdown 封装进 `md` 节点；当前仍不实现 `interactive`、图片上传和手工细粒度富文本节点编排。
 
 ### 背景
 
-飞书消息接口支持 `text`、`post`、`interactive` 等多种格式，但 `post` 需要多语言结构和富文本节点组织，卡片还涉及模板、变量类型和更复杂的错误处理。
+飞书消息接口支持 `text`、`post`、`interactive` 等多种格式。当前系统的统一模板已经产出 Markdown，而 `docs/feishu-message-content.md` 明确说明 `post` 支持 `md` 标签，可以直接承载 Markdown 子集。继续停留在 `text` 会让标题、列表、引用、代码块等结构全部退化成普通文本，实际效果明显弱于 Telegram。
 
 ### 备选方案
 
-- 方案 A：首版直接上 `post`
-- 方案 B：首版只做 `text`
-- 方案 C：首版直接上 card
+- 方案 A：继续使用 `text`
+- 方案 B：使用 `post`，并把正文包进 `md` 节点
+- 方案 C：直接实现 `post` 的细粒度节点映射
+- 方案 D：直接上 card
 
 ### 最终选择
 
@@ -341,15 +342,17 @@ Feishu 渠道首版只支持发送 `msg_type=text`，不在当前阶段实现 `p
 
 ### 原因
 
-- 最容易与当前统一模板结果对接。
-- 请求体结构简单，联调成本低。
-- 先把渠道鉴权、target、发送链路跑通，再扩富文本更稳妥。
+- 与当前统一模板结果天然兼容，不需要重写模板层。
+- 比 `text` 明显更接近用户对“Markdown 富文本”的预期。
+- 比手工拆 AST/节点树更稳，能先复用飞书官方支持的 Markdown 子集。
+- 保持平台差异继续封装在 Feishu driver 内，不扩散到发布编排层。
 
 ### 影响
 
-- 当前模板结果在 Feishu driver 中直接封装为 `{"text":"..."}`。
-- 首版不支持飞书卡片、素材上传和 `post` 富文本。
-- 后续若新增 `post`，可以在不改发布主流程的前提下扩展 Feishu driver。
+- Feishu driver 当前发送 `msg_type=post`，`content` 结构为 `{"zh_cn":{"title":"...","content":[[{"tag":"md","text":"..."}]]}}`。
+- `SendRequest` 补充了通用 `Title` 字段，为后续其他富文本渠道复用标题能力预留统一入口。
+- 为避免标题重复，Feishu driver 会剥离默认模板中与 `post.title` 重复的首行 `# title`。
+- 当前仍不支持飞书卡片、图片上传、文件上传和自定义节点级样式控制。
 
 ## 决策 7：frontmatter 解析引入 YAML 解析能力
 
