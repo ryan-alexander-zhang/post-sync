@@ -57,10 +57,10 @@
 对当前项目的配置映射建议：
 
 - `ChannelAccount.channelType = "feishu"`
-- `ChannelAccount.secretRef = FEISHU_TENANT_ACCESS_TOKEN`
+- `ChannelAccount.secretRef = FEISHU_APP_SECRET`
 - `ChannelAccount.configJson` 保存非敏感配置：
-  - `appId`
-  - `tokenMode`
+  - `appIdEnv`
+  - 可选 `tokenEnv`
   - 可选 `baseUrl`
 
 更稳妥的本地环境变量方案：
@@ -71,14 +71,14 @@
 
 说明：
 
-- 当前 `docs/` 中没有提供“如何获取 tenant_access_token”的文档
-- 如果沿用现有 Telegram 的 `secretRef -> os.Getenv()` 模式，飞书首版可以先直接读取 `FEISHU_TENANT_ACCESS_TOKEN`
-- 更完整的做法是后续再补“用 app_id + app_secret 交换 tenant_access_token”的 token provider
+- 当前仓库已补充 `docs/feishu-auth-reference.md`
+- 飞书更适合通过 `app_id + app_secret` 获取并缓存 `tenant_access_token`
+- 本地调试时也可以允许显式提供 `FEISHU_TENANT_ACCESS_TOKEN`
 
 结论：
 
-- 飞书渠道首版建议先不做 token 自动刷新
-- 先把 `tenant_access_token` 作为运行时环境变量提供
+- 飞书渠道建议直接按 token provider 方式实现
+- 这样后续新增需要自动换 token 的渠道时，不需要改动发布编排层
 
 ## 4. Target 模型建议
 
@@ -271,9 +271,9 @@
 推荐的首版数据映射：
 
 - `ChannelAccount.secretRef`:
-  - 先存 `FEISHU_TENANT_ACCESS_TOKEN`
+  - 先存 `FEISHU_APP_SECRET`
 - `ChannelAccount.configJson`:
-  - `{"appId":"cli_xxx"}`
+  - `{"appIdEnv":"FEISHU_APP_ID","tokenEnv":"FEISHU_TENANT_ACCESS_TOKEN"}`
 - `ChannelTarget.targetKey`:
   - `oc_xxx`
 - `ChannelTarget.configJson`:
