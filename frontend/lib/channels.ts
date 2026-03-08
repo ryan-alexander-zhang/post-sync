@@ -1,0 +1,141 @@
+import { ChannelAccount, ChannelTarget } from "@/lib/types";
+
+export type SupportedChannelType = "telegram" | "feishu";
+
+export type TelegramTargetConfig = {
+  chatId?: string;
+  topicId?: number;
+  topicName?: string;
+  disableNotification?: boolean;
+  disableWebPagePreview?: boolean;
+};
+
+export type FeishuAccountConfig = {
+  appIdEnv?: string;
+  tokenEnv?: string;
+  baseUrl?: string;
+};
+
+export type FeishuTargetConfig = {
+  receiveIdType?: string;
+  chatId?: string;
+};
+
+export const CHANNEL_OPTIONS: Array<{
+  value: SupportedChannelType;
+  label: string;
+  description: string;
+  defaultSecretRef: string;
+}> = [
+  {
+    value: "telegram",
+    label: "Telegram",
+    description: "Use a bot token from the current environment.",
+    defaultSecretRef: "TELEGRAM_BOT_TOKEN",
+  },
+  {
+    value: "feishu",
+    label: "Feishu",
+    description: "Use app credentials to fetch tenant access tokens.",
+    defaultSecretRef: "FEISHU_APP_SECRET",
+  },
+];
+
+export function parseTelegramTargetConfig(raw: string): TelegramTargetConfig {
+  return parseConfig<TelegramTargetConfig>(raw);
+}
+
+export function parseFeishuAccountConfig(raw: string): FeishuAccountConfig {
+  return parseConfig<FeishuAccountConfig>(raw);
+}
+
+export function parseFeishuTargetConfig(raw: string): FeishuTargetConfig {
+  return parseConfig<FeishuTargetConfig>(raw);
+}
+
+export function buildChannelAccountPayload(channelType: SupportedChannelType, formData: FormData) {
+  if (channelType === "feishu") {
+    return {
+      channelType,
+      name: formData.get("name"),
+      secretRef: formData.get("secretRef"),
+      config: {
+        appIdEnv: formData.get("appIdEnv"),
+        tokenEnv: formData.get("tokenEnv"),
+        baseUrl: formData.get("baseUrl"),
+      },
+    };
+  }
+
+  return {
+    channelType,
+    name: formData.get("name"),
+    secretRef: formData.get("secretRef"),
+    config: {},
+  };
+}
+
+export function buildChannelTargetPayload(account: ChannelAccount | undefined, formData: FormData) {
+  if (account?.channelType === "feishu") {
+    return {
+      channelAccountId: formData.get("channelAccountId"),
+      targetType: "feishu_chat",
+      targetKey: formData.get("targetKey"),
+      targetName: formData.get("targetName"),
+      config: {
+        receiveIdType: "chat_id",
+        chatId: formData.get("targetKey"),
+      },
+    };
+  }
+
+  return {
+    channelAccountId: formData.get("channelAccountId"),
+    targetType:
+      String(formData.get("topicId") || "").trim() === ""
+        ? "telegram_group"
+        : "telegram_topic",
+    targetKey: formData.get("targetKey"),
+    targetName: formData.get("targetName"),
+    config: {
+      chatId: formData.get("targetKey"),
+      topicId: formData.get("topicId"),
+      topicName: formData.get("topicName"),
+      disableNotification: false,
+      disableWebPagePreview: false,
+    },
+  };
+}
+
+export function describeTarget(target: ChannelTarget) {
+  if (target.targetType === "feishu_chat") {
+    const feishu = parseFeishuTargetConfig(target.configJson);
+    return {
+      channelLabel: "Feishu",
+      primary: feishu.chatId || target.targetKey,
+      secondary: "Chat",
+    };
+  }
+
+  const telegram = parseTelegramTargetConfig(target.configJson);
+  return {
+    channelLabel: "Telegram",
+    primary: telegram.chatId || target.targetKey,
+    secondary:
+      target.targetType === "telegram_topic"
+        ? `${telegram.topicName || "Topic"} (${telegram.topicId ?? "-"})`
+        : "Group root",
+  };
+}
+
+function parseConfig<T>(raw: string): T {
+  if (!raw) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return {} as T;
+  }
+}

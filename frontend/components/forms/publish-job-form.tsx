@@ -31,7 +31,7 @@ export function PublishJobForm({
         body: JSON.stringify({
           contentId: formData.get("contentId"),
           targetIds: selectedTargets,
-          templateName: "default-telegram",
+          templateName: "default",
         }),
       });
 

@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import {
+  buildChannelAccountPayload,
+  CHANNEL_OPTIONS,
+  SupportedChannelType,
+} from "@/lib/channels";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
@@ -13,6 +19,7 @@ export function ChannelAccountForm() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [message, setMessage] = useState("");
+  const [channelType, setChannelType] = useState<SupportedChannelType>("telegram");
   const [isPending, startTransition] = useTransition();
 
   function submit(formData: FormData) {
@@ -20,12 +27,7 @@ export function ChannelAccountForm() {
       const response = await fetch(`${API_BASE}/channel-accounts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channelType: "telegram",
-          name: formData.get("name"),
-          secretRef: formData.get("secretRef"),
-          config: {},
-        }),
+        body: JSON.stringify(buildChannelAccountPayload(channelType, formData)),
       });
 
       const payload = await response.json();
@@ -42,18 +44,60 @@ export function ChannelAccountForm() {
 
   return (
     <form ref={formRef} action={submit} className="grid gap-3">
+      <Select
+        name="channelType"
+        onChange={(event) => setChannelType(event.target.value as SupportedChannelType)}
+        value={channelType}
+      >
+        {CHANNEL_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
       <Input name="name" placeholder="Account name" required />
       <Input
         autoCapitalize="off"
         autoCorrect="off"
-        defaultValue="TELEGRAM_BOT_TOKEN"
+        defaultValue={
+          CHANNEL_OPTIONS.find((option) => option.value === channelType)?.defaultSecretRef
+        }
+        key={channelType}
         name="secretRef"
-        placeholder="TELEGRAM_BOT_TOKEN"
+        placeholder="Secret env ref"
         required
       />
+      {channelType === "feishu" ? (
+        <>
+          <Input
+            autoCapitalize="off"
+            autoCorrect="off"
+            defaultValue="FEISHU_APP_ID"
+            name="appIdEnv"
+            placeholder="FEISHU_APP_ID"
+            required
+          />
+          <Input
+            autoCapitalize="off"
+            autoCorrect="off"
+            defaultValue="FEISHU_TENANT_ACCESS_TOKEN"
+            name="tokenEnv"
+            placeholder="FEISHU_TENANT_ACCESS_TOKEN (optional)"
+          />
+          <Input
+            autoCapitalize="off"
+            autoCorrect="off"
+            name="baseUrl"
+            placeholder="https://open.feishu.cn (optional)"
+          />
+        </>
+      ) : null}
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-foreground/65">
-          {message || "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef."}
+          {message ||
+            (channelType === "feishu"
+              ? "Feishu uses FEISHU_APP_ID + FEISHU_APP_SECRET by default, with optional FEISHU_TENANT_ACCESS_TOKEN override."
+              : "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef.")}
         </p>
         <Button disabled={isPending} type="submit">
           {isPending ? "Saving..." : "Add account"}

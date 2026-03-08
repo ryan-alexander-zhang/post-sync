@@ -98,7 +98,7 @@ func (s *PublishService) CreateJob(ctx context.Context, input CreatePublishJobIn
 
 	templateName := input.TemplateName
 	if strings.TrimSpace(templateName) == "" {
-		templateName = "default-telegram"
+		templateName = "default"
 	}
 
 	for _, target := range targets {
