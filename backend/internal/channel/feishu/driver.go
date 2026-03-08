@@ -88,8 +88,8 @@ func (d *Driver) NormalizeTarget(input channel.TargetInput) (channel.NormalizedT
 func (d *Driver) Render(input channel.RenderInput) (channel.RenderedMessage, error) {
 	return channel.RenderedMessage{
 		Title:      input.ContentTitle,
-		Body:       strings.TrimSpace(input.ContentBody),
-		RenderMode: domain.RenderModeFeishuText,
+		Body:       stripDuplicatedTitle(input.ContentTitle, input.ContentBody),
+		RenderMode: domain.RenderModeFeishuPost,
 	}, nil
 }
 
@@ -112,16 +112,14 @@ func (d *Driver) Send(ctx context.Context, request channel.SendRequest) (channel
 		return channel.SendResult{}, fmt.Errorf("feishu chat id is required")
 	}
 
-	contentBody, err := json.Marshal(map[string]string{
-		"text": request.Body,
-	})
+	contentBody, err := json.Marshal(buildPostContent(request.Title, request.Body))
 	if err != nil {
 		return channel.SendResult{}, err
 	}
 
 	payload := map[string]any{
 		"receive_id": receiveID,
-		"msg_type":   "text",
+		"msg_type":   "post",
 		"content":    string(contentBody),
 	}
 	if request.IdempotencyKey != "" {
@@ -192,4 +190,43 @@ func truncate(input string, limit int) string {
 		return input
 	}
 	return input[:limit]
+}
+
+func buildPostContent(title, body string) map[string]any {
+	content := map[string]any{
+		"zh_cn": map[string]any{
+			"content": [][]map[string]string{
+				{
+					{
+						"tag":  "md",
+						"text": strings.TrimSpace(body),
+					},
+				},
+			},
+		},
+	}
+
+	if trimmedTitle := strings.TrimSpace(title); trimmedTitle != "" {
+		content["zh_cn"].(map[string]any)["title"] = trimmedTitle
+	}
+
+	return content
+}
+
+func stripDuplicatedTitle(title, body string) string {
+	trimmedBody := strings.TrimSpace(body)
+	trimmedTitle := strings.TrimSpace(title)
+	if trimmedTitle == "" || trimmedBody == "" {
+		return trimmedBody
+	}
+
+	prefix := "# " + trimmedTitle
+	if trimmedBody == prefix {
+		return ""
+	}
+	if strings.HasPrefix(trimmedBody, prefix+"\n") {
+		return strings.TrimSpace(strings.TrimPrefix(trimmedBody, prefix))
+	}
+
+	return trimmedBody
 }

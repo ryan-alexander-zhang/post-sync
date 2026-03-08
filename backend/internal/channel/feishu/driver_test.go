@@ -54,11 +54,11 @@ func TestSendUsesTenantAccessTokenFlow(t *testing.T) {
 			if payload["receive_id"] != "oc_123" {
 				t.Fatalf("receive_id = %v", payload["receive_id"])
 			}
-			if payload["msg_type"] != "text" {
+			if payload["msg_type"] != "post" {
 				t.Fatalf("msg_type = %v", payload["msg_type"])
 			}
 			content, _ := payload["content"].(string)
-			if !strings.Contains(content, "hello") {
+			if !strings.Contains(content, "\"tag\":\"md\"") || !strings.Contains(content, "hello") {
 				t.Fatalf("content = %q", content)
 			}
 
@@ -142,6 +142,50 @@ func TestResolveConfiguredValueReadsEnv(t *testing.T) {
 	}
 	if value != "cli_test" {
 		t.Fatalf("value = %q", value)
+	}
+}
+
+func TestBuildPostContentIncludesOptionalTitle(t *testing.T) {
+	content := buildPostContent("Test Title", "# heading\n\nbody")
+
+	payload, ok := content["zh_cn"].(map[string]any)
+	if !ok {
+		t.Fatalf("zh_cn payload missing")
+	}
+	if payload["title"] != "Test Title" {
+		t.Fatalf("title = %v", payload["title"])
+	}
+
+	paragraphs, ok := payload["content"].([][]map[string]string)
+	if !ok || len(paragraphs) != 1 || len(paragraphs[0]) != 1 {
+		t.Fatalf("content paragraphs malformed: %#v", payload["content"])
+	}
+	if paragraphs[0][0]["tag"] != "md" {
+		t.Fatalf("tag = %q", paragraphs[0][0]["tag"])
+	}
+	if paragraphs[0][0]["text"] != "# heading\n\nbody" {
+		t.Fatalf("text = %q", paragraphs[0][0]["text"])
+	}
+}
+
+func TestRenderStripsDuplicatedMarkdownHeading(t *testing.T) {
+	driver := New(nil, nil)
+
+	rendered, err := driver.Render(channel.RenderInput{
+		ContentTitle: "Weekly Update",
+		ContentBody:  "# Weekly Update\n\nHello team",
+	})
+	if err != nil {
+		t.Fatalf("Render() error = %v", err)
+	}
+	if rendered.Title != "Weekly Update" {
+		t.Fatalf("Title = %q", rendered.Title)
+	}
+	if rendered.Body != "Hello team" {
+		t.Fatalf("Body = %q", rendered.Body)
+	}
+	if rendered.RenderMode != domain.RenderModeFeishuPost {
+		t.Fatalf("RenderMode = %q", rendered.RenderMode)
 	}
 }
 

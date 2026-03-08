@@ -97,4 +97,5 @@ const (
 	TargetTypeFeishuChat    = "feishu_chat"
 	RenderModeTelegram      = "telegram_html"
 	RenderModeFeishuText    = "feishu_text"
+	RenderModeFeishuPost    = "feishu_post"
 )

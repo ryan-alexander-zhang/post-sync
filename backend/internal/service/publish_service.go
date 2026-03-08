@@ -345,6 +345,7 @@ func (s *PublishService) executeDelivery(deliveryID string) {
 			Config:    targetConfig,
 			IsEnabled: target.Enabled,
 		},
+		Title:          driverRendered.Title,
 		Body:           driverRendered.Body,
 		IdempotencyKey: delivery.IdempotencyKey,
 	})

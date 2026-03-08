@@ -64,6 +64,7 @@ type Target struct {
 type SendRequest struct {
 	Account        Account
 	Target         Target
+	Title          string
 	Body           string
 	IdempotencyKey string
 }
