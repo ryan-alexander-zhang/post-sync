@@ -38,6 +38,17 @@
 
 详细设计见 [design.md](/Users/erpang/GitHubProjects/post-sync/design.md)，关键决策见 [decision.md](/Users/erpang/GitHubProjects/post-sync/decision.md)。
 
+## 协作约束
+
+仓库级协作约束见 [AGENTS.md](/Users/erpang/GitHubProjects/post-sync/AGENTS.md)。
+
+当前强制要求：
+
+- 核心决策必须记录到 [decision.md](/Users/erpang/GitHubProjects/post-sync/decision.md)
+- [design.md](/Users/erpang/GitHubProjects/post-sync/design.md) 必须包含模块划分、数据模型、API 设计、状态设计、去重设计、模板设计、部署设计
+- [decision.md](/Users/erpang/GitHubProjects/post-sync/decision.md) 必须明确记录新增依赖、关键架构决策、关键假设
+- 提交必须按“小模块、低耦合、易 review”原则拆分
+
 ## 技术栈
 
 ### Backend
