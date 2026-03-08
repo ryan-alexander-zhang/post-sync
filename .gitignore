@@ -1,0 +1,5 @@
+.DS_Store
+backend/.cache
+backend/data
+frontend/.next
+frontend/node_modules
