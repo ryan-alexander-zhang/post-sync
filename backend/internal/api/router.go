@@ -15,6 +15,7 @@ import (
 func NewRouter(database *gorm.DB, cfg config.Config) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
+	router.Use(corsMiddleware())
 
 	router.GET("/healthz", func(c *gin.Context) {
 		c.JSON(200, gin.H{
