@@ -90,8 +90,11 @@ const (
 	DeliveryStatusFailed           = "FAILED"
 	DeliveryStatusSkippedDuplicate = "SKIPPED_DUPLICATE"
 
-	ChannelTypeTelegram    = "telegram"
-	TargetTypeTelegramGrp  = "telegram_group"
+	ChannelTypeTelegram     = "telegram"
+	ChannelTypeFeishu       = "feishu"
+	TargetTypeTelegramGrp   = "telegram_group"
 	TargetTypeTelegramTopic = "telegram_topic"
-	RenderModeTelegram     = "telegram_html"
+	TargetTypeFeishuChat    = "feishu_chat"
+	RenderModeTelegram      = "telegram_html"
+	RenderModeFeishuText    = "feishu_text"
 )

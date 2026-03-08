@@ -13,6 +13,7 @@ import (
 
 	"github.com/erpang/post-sync/internal/channel"
 	"github.com/erpang/post-sync/internal/domain"
+	"github.com/erpang/post-sync/internal/render"
 )
 
 type Driver struct{}
@@ -102,9 +103,15 @@ func (d *Driver) NormalizeTarget(input channel.TargetInput) (channel.NormalizedT
 }
 
 func (d *Driver) Render(input channel.RenderInput) (channel.RenderedMessage, error) {
+	renderer := render.NewTemplateRenderer()
+	body, err := renderer.MarkdownToTelegramHTML(input.ContentBody)
+	if err != nil {
+		return channel.RenderedMessage{}, err
+	}
+
 	return channel.RenderedMessage{
 		Title:      input.ContentTitle,
-		Body:       strings.TrimSpace(input.ContentBody),
+		Body:       strings.TrimSpace(body),
 		RenderMode: domain.RenderModeTelegram,
 	}, nil
 }

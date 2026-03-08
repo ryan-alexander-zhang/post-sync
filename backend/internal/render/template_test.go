@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderMarkdownSupportsYAMLArrayTags(t *testing.T) {
+func TestRenderTemplateSupportsYAMLArrayTags(t *testing.T) {
 	renderer := NewTemplateRenderer()
 
 	var context Context
@@ -15,14 +15,14 @@ func TestRenderMarkdownSupportsYAMLArrayTags(t *testing.T) {
 		"tags": []any{"go", "telegram"},
 	}
 
-	result, err := renderer.RenderMarkdown("default", `{{ .Content.BodyMarkdown }}
+	result, err := renderer.RenderTemplate("default", `{{ .Content.BodyMarkdown }}
 
 {{ with .Meta.tags }}{{ hashtags . }}{{ end }}`, context)
 	if err != nil {
-		t.Fatalf("RenderMarkdown() error = %v", err)
+		t.Fatalf("RenderTemplate() error = %v", err)
 	}
 
 	if !strings.Contains(result, "#go #telegram") {
-		t.Fatalf("RenderMarkdown() = %q, want tags output", result)
+		t.Fatalf("RenderTemplate() = %q, want tags output", result)
 	}
 }

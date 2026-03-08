@@ -293,7 +293,7 @@ func (s *PublishService) executeDelivery(deliveryID string) {
 	renderContext.Channel.TargetName = target.TargetName
 	renderContext.Channel.TargetKey = target.TargetKey
 
-	renderedHTML, err := s.renderer.RenderMarkdown(delivery.TemplateName, defaultTemplate, renderContext)
+	renderedTemplate, err := s.renderer.RenderTemplate(delivery.TemplateName, defaultTemplate, renderContext)
 	if err != nil {
 		s.failDelivery(ctx, delivery, "RENDER_ERROR", err.Error())
 		s.refreshJobStatus(context.Background(), delivery.PublishJobID)
@@ -303,7 +303,7 @@ func (s *PublishService) executeDelivery(deliveryID string) {
 	driverRendered, err := driver.Render(channel.RenderInput{
 		TemplateName: delivery.TemplateName,
 		ContentTitle: content.Title,
-		ContentBody:  renderedHTML,
+		ContentBody:  renderedTemplate,
 		Frontmatter:  frontmatter,
 		TargetName:   target.TargetName,
 		TargetKey:    target.TargetKey,

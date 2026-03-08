@@ -39,7 +39,7 @@ func NewTemplateRenderer() *TemplateRenderer {
 	return &TemplateRenderer{engine: goldmark.New()}
 }
 
-func (r *TemplateRenderer) RenderMarkdown(templateName, text string, context Context) (string, error) {
+func (r *TemplateRenderer) RenderTemplate(templateName, text string, context Context) (string, error) {
 	tpl, err := template.New(templateName).Funcs(template.FuncMap{
 		"join":     joinValues,
 		"hashtags": joinHashtags,
@@ -53,8 +53,12 @@ func (r *TemplateRenderer) RenderMarkdown(templateName, text string, context Con
 		return "", err
 	}
 
+	return strings.TrimSpace(markdownBuffer.String()), nil
+}
+
+func (r *TemplateRenderer) MarkdownToTelegramHTML(text string) (string, error) {
 	var htmlBuffer bytes.Buffer
-	if err := r.engine.Convert(markdownBuffer.Bytes(), &htmlBuffer); err != nil {
+	if err := r.engine.Convert([]byte(text), &htmlBuffer); err != nil {
 		return "", err
 	}
 

@@ -1,7 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/erpang/post-sync/internal/channel"
+	"github.com/erpang/post-sync/internal/channel/feishu"
 	"github.com/erpang/post-sync/internal/channel/telegram"
 	"github.com/erpang/post-sync/internal/config"
 	"github.com/gin-gonic/gin"
@@ -33,7 +36,12 @@ func NewRouter(database *gorm.DB, cfg config.Config) *gin.Engine {
 	contentRepository := repository.NewContentRepository(database)
 	channelRepository := repository.NewChannelRepository(database)
 	publishRepository := repository.NewPublishRepository(database)
-	driverRegistry := channel.NewRegistry(telegram.New())
+	feishuClient := http.DefaultClient
+	feishuTokenProvider := feishu.NewTokenProvider(feishuClient)
+	driverRegistry := channel.NewRegistry(
+		telegram.New(),
+		feishu.New(feishuClient, feishuTokenProvider),
+	)
 
 	contentService := service.NewContentService(contentRepository, publishRepository)
 	channelService := service.NewChannelService(channelRepository, driverRegistry)
