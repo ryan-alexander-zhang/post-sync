@@ -126,20 +126,19 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api/v1
 后端：
 
 ```bash
-go run ./backend/cmd/server
+make dev-backend
 ```
 
 前端：
 
 ```bash
-npm install --prefix frontend
-npm run dev --prefix frontend
+make dev-frontend
 ```
 
 如果前端开发态出现 `.next` 缓存损坏、样式丢失或 `ENOENT app-build-manifest.json` 这类问题，可直接重启：
 
 ```bash
-./scripts/restart-frontend-dev.sh
+make restart-frontend
 ```
 
 默认访问：
