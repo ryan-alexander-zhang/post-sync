@@ -25,7 +25,7 @@ const defaultTemplate = `{{ if .Content.Title }}# {{ .Content.Title }}{{ end }}
 
 {{ .Content.BodyMarkdown }}
 
-{{ with .Meta.tags }}Tags: {{ join . ", " }}{{ end }}`
+{{ with .Meta.tags }}{{ hashtags . }}{{ end }}`
 
 type PublishService struct {
 	contentRepository *repository.ContentRepository

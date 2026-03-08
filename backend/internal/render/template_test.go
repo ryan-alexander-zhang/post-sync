@@ -17,12 +17,12 @@ func TestRenderMarkdownSupportsYAMLArrayTags(t *testing.T) {
 
 	result, err := renderer.RenderMarkdown("default", `{{ .Content.BodyMarkdown }}
 
-{{ with .Meta.tags }}Tags: {{ join . ", " }}{{ end }}`, context)
+{{ with .Meta.tags }}{{ hashtags . }}{{ end }}`, context)
 	if err != nil {
 		t.Fatalf("RenderMarkdown() error = %v", err)
 	}
 
-	if !strings.Contains(result, "Tags: go, telegram") {
+	if !strings.Contains(result, "#go #telegram") {
 		t.Fatalf("RenderMarkdown() = %q, want tags output", result)
 	}
 }

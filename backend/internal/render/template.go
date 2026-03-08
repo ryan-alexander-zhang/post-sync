@@ -41,7 +41,8 @@ func NewTemplateRenderer() *TemplateRenderer {
 
 func (r *TemplateRenderer) RenderMarkdown(templateName, text string, context Context) (string, error) {
 	tpl, err := template.New(templateName).Funcs(template.FuncMap{
-		"join": joinValues,
+		"join":     joinValues,
+		"hashtags": joinHashtags,
 	}).Parse(text)
 	if err != nil {
 		return "", err
@@ -107,4 +108,43 @@ func joinValues(value any, separator string) string {
 	default:
 		return strings.TrimSpace(fmt.Sprint(typed))
 	}
+}
+
+func joinHashtags(value any) string {
+	switch typed := value.(type) {
+	case []string:
+		items := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			tag := normalizeTag(entry)
+			if tag == "" {
+				continue
+			}
+			items = append(items, "#"+tag)
+		}
+		return strings.Join(items, " ")
+	case []any:
+		items := make([]string, 0, len(typed))
+		for _, entry := range typed {
+			tag := normalizeTag(fmt.Sprint(entry))
+			if tag == "" {
+				continue
+			}
+			items = append(items, "#"+tag)
+		}
+		return strings.Join(items, " ")
+	case nil:
+		return ""
+	default:
+		tag := normalizeTag(fmt.Sprint(typed))
+		if tag == "" {
+			return ""
+		}
+		return "#" + tag
+	}
+}
+
+func normalizeTag(input string) string {
+	tag := strings.TrimSpace(input)
+	tag = strings.TrimPrefix(tag, "#")
+	return strings.TrimSpace(tag)
 }
