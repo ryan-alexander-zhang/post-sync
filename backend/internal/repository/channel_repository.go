@@ -60,3 +60,9 @@ func (r *ChannelRepository) GetTargetByID(ctx context.Context, id string) (*doma
 	}
 	return &target, nil
 }
+
+func (r *ChannelRepository) GetTargetsByIDs(ctx context.Context, ids []string) ([]domain.ChannelTarget, error) {
+	var targets []domain.ChannelTarget
+	err := r.db.WithContext(ctx).Find(&targets, "id IN ?", ids).Error
+	return targets, err
+}

@@ -25,7 +25,7 @@ func New() (*App, error) {
 		config: cfg,
 		server: &http.Server{
 			Addr:         cfg.ServerAddr,
-			Handler:      api.NewRouter(database),
+			Handler:      api.NewRouter(database, cfg),
 			ReadTimeout:  cfg.HTTPReadTimeout,
 			WriteTimeout: cfg.HTTPWriteTimeout,
 		},
