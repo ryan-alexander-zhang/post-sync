@@ -43,9 +43,18 @@ export function ChannelAccountForm() {
   return (
     <form ref={formRef} action={submit} className="grid gap-3">
       <Input name="name" placeholder="Account name" required />
-      <Input name="secretRef" placeholder="TELEGRAM_BOT_TOKEN" required />
+      <Input
+        autoCapitalize="off"
+        autoCorrect="off"
+        defaultValue="TELEGRAM_BOT_TOKEN"
+        name="secretRef"
+        placeholder="TELEGRAM_BOT_TOKEN"
+        required
+      />
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm text-foreground/65">{message || "Bot token stays in env, database stores only secretRef."}</p>
+        <p className="text-sm text-foreground/65">
+          {message || "Telegram accounts should usually use TELEGRAM_BOT_TOKEN as secretRef."}
+        </p>
         <Button disabled={isPending} type="submit">
           {isPending ? "Saving..." : "Add account"}
         </Button>
