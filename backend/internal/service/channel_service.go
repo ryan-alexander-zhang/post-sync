@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/erpang/post-sync/internal/channel"
@@ -65,6 +66,8 @@ func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelA
 		return nil, fmt.Errorf("%w: channelType, name and secretRef are required", ErrValidation)
 	}
 
+	input.SecretRef = strings.TrimSpace(input.SecretRef)
+
 	driver, err := s.registry.MustGet(input.ChannelType)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unsupported channel type", ErrValidation)
@@ -72,6 +75,9 @@ func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelA
 
 	if err := driver.ValidateAccount(input.Config, input.SecretRef); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
+	}
+	if err := validateSecretRef(input.ChannelType, input.SecretRef); err != nil {
+		return nil, err
 	}
 
 	configJSON, err := marshalConfig(input.Config)
@@ -89,7 +95,7 @@ func (s *ChannelService) CreateAccount(ctx context.Context, input CreateChannelA
 		ChannelType: input.ChannelType,
 		Name:        strings.TrimSpace(input.Name),
 		Enabled:     enabled,
-		SecretRef:   strings.TrimSpace(input.SecretRef),
+		SecretRef:   input.SecretRef,
 		ConfigJSON:  configJSON,
 	}
 
@@ -130,6 +136,9 @@ func (s *ChannelService) UpdateAccount(ctx context.Context, id string, input Upd
 	}
 	if err := driver.ValidateAccount(input.Config, account.SecretRef); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrValidation, err)
+	}
+	if err := validateSecretRef(account.ChannelType, account.SecretRef); err != nil {
+		return nil, err
 	}
 
 	if err := s.channelRepository.UpdateAccount(ctx, account); err != nil {
@@ -284,4 +293,16 @@ func marshalConfig(config map[string]any) (string, error) {
 		return "", err
 	}
 	return string(data), nil
+}
+
+func validateSecretRef(channelType, secretRef string) error {
+	if channelType != domain.ChannelTypeTelegram {
+		return nil
+	}
+
+	if _, ok := os.LookupEnv(secretRef); !ok {
+		return fmt.Errorf("%w: environment variable %s is not set", ErrValidation, secretRef)
+	}
+
+	return nil
 }
