@@ -16,6 +16,7 @@ export function RetryDeliveryButton({ deliveryId }: { deliveryId: string }) {
   return (
     <div className="flex items-center gap-3">
       <Button
+        className="min-h-10 rounded-xl px-3 py-2 text-xs"
         disabled={isPending}
         onClick={() =>
           startTransition(async () => {

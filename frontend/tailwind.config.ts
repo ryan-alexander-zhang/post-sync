@@ -9,13 +9,17 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "#f6f1e8",
-        foreground: "#1d1b19",
-        card: "#fffaf2",
-        border: "#d4c7b5",
-        primary: "#125b50",
-        accent: "#f4b860",
-        muted: "#ece2d3",
+        background: "#04111f",
+        foreground: "#eff7ff",
+        card: "rgba(9,22,38,0.78)",
+        border: "rgba(128,166,198,0.18)",
+        primary: "#39d98a",
+        accent: "#7dd3fc",
+        muted: "rgba(93,122,149,0.18)",
+      },
+      fontFamily: {
+        sans: ["var(--font-sans)", "sans-serif"],
+        mono: ["var(--font-mono)", "monospace"],
       },
     },
   },

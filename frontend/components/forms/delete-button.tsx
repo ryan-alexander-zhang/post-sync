@@ -22,7 +22,7 @@ export function DeleteButton({
   return (
     <div className="flex items-center gap-2">
       <Button
-        className="border-red-700 bg-red-700 hover:bg-red-700/90"
+        className="min-h-10 rounded-xl border-[#ff8a8a]/35 bg-[#ff8a8a]/12 px-3 py-2 text-xs text-[#ffb1b1] shadow-none hover:bg-[#ff8a8a]/18"
         disabled={isPending}
         onClick={() => {
           if (!window.confirm(`Delete ${label}? This cannot be undone.`)) {
@@ -48,7 +48,7 @@ export function DeleteButton({
       >
         {isPending ? "Deleting..." : "Delete"}
       </Button>
-      {message ? <span className="text-xs text-red-700">{message}</span> : null}
+      {message ? <span className="text-xs text-[#ff8a8a]">{message}</span> : null}
     </div>
   );
 }

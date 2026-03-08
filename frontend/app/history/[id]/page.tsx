@@ -19,20 +19,20 @@ export default async function HistoryDetailPage({
         <Badge>{job.status}</Badge>
         <h2 className="mt-3 text-3xl font-semibold">Publish job detail</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-4">
-          <div className="rounded-2xl border border-border bg-white/60 p-4">
-            <p className="text-sm text-foreground/60">Total</p>
+          <div className="rounded-2xl border border-border bg-background/30 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-foreground/45">Total</p>
             <p className="mt-2 text-3xl font-semibold">{job.totalDeliveries}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-white/60 p-4">
-            <p className="text-sm text-foreground/60">Success</p>
+          <div className="rounded-2xl border border-border bg-background/30 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-foreground/45">Success</p>
             <p className="mt-2 text-3xl font-semibold">{job.successCount}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-white/60 p-4">
-            <p className="text-sm text-foreground/60">Failed</p>
+          <div className="rounded-2xl border border-border bg-background/30 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-foreground/45">Failed</p>
             <p className="mt-2 text-3xl font-semibold">{job.failedCount}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-white/60 p-4">
-            <p className="text-sm text-foreground/60">Skipped</p>
+          <div className="rounded-2xl border border-border bg-background/30 p-4">
+            <p className="font-mono text-[11px] uppercase tracking-[0.24em] text-foreground/45">Skipped</p>
             <p className="mt-2 text-3xl font-semibold">{job.skippedCount}</p>
           </div>
         </div>

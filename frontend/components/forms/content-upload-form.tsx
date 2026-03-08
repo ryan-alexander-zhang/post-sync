@@ -38,7 +38,7 @@ export function ContentUploadForm() {
     <form
       ref={formRef}
       action={handleSubmit}
-      className="grid gap-4 rounded-[24px] border border-dashed border-primary/40 bg-white/60 p-5"
+      className="grid gap-4 rounded-[24px] border border-dashed border-primary/35 bg-background/30 p-5"
     >
       <Input name="file" type="file" accept=".md,.markdown,text/markdown,text/plain" />
       <div className="flex items-center justify-between gap-3">

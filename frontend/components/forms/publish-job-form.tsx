@@ -63,7 +63,7 @@ export function PublishJobForm({
           </option>
         ))}
       </Select>
-      <div className="grid gap-3 rounded-[24px] border border-border bg-white/60 p-4">
+      <div className="grid gap-3 rounded-[24px] border border-border bg-background/30 p-4">
         <p className="text-sm font-medium">Select targets</p>
         {targets.map((target) => {
           const account = accountMap.get(target.channelAccountId);
@@ -74,9 +74,9 @@ export function PublishJobForm({
           return (
             <label
               key={target.id}
-              className="grid grid-cols-[auto_1fr] items-start gap-3 text-sm"
+              className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-3 rounded-2xl border border-transparent px-3 py-3 text-sm transition hover:border-primary/20 hover:bg-white/[0.02]"
             >
-            <input className="size-4 accent-[#125b50]" name="targetIds" type="checkbox" value={target.id} />
+              <input className="mt-0.5 size-4 accent-[#39d98a]" name="targetIds" type="checkbox" value={target.id} />
               <span className="grid gap-1">
                 <span className="font-medium">{target.targetName}</span>
                 <span className="text-xs text-foreground/55">{channelLabel}</span>

@@ -3,15 +3,35 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", sans-serif;
+  --font-mono: "SFMono-Regular", "Menlo", "Monaco", monospace;
+  --background: #04111f;
+  --background-strong: #020914;
+  --foreground: #eff7ff;
+  --foreground-muted: rgba(223, 236, 247, 0.7);
+  --card: rgba(9, 22, 38, 0.78);
+  --border: rgba(128, 166, 198, 0.18);
+  --primary: #39d98a;
+  --accent: #7dd3fc;
+  --muted: rgba(93, 122, 149, 0.18);
+}
+
+html {
+  min-height: 100%;
+  background: var(--background-strong);
 }
 
 body {
   min-height: 100vh;
+  margin: 0;
   background:
-    radial-gradient(circle at top left, rgba(244, 184, 96, 0.28), transparent 32%),
-    linear-gradient(180deg, #f8f2e9 0%, #efe4d0 100%);
-  color: #1d1b19;
+    radial-gradient(circle at top left, rgba(57, 217, 138, 0.18), transparent 24%),
+    radial-gradient(circle at top right, rgba(125, 211, 252, 0.18), transparent 26%),
+    linear-gradient(180deg, #071321 0%, #04111f 44%, #020914 100%);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 a {
@@ -21,4 +41,42 @@ a {
 
 * {
   box-sizing: border-box;
+}
+
+*::selection {
+  background: rgba(57, 217, 138, 0.24);
+  color: var(--foreground);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+[role="button"],
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid rgba(139, 240, 188, 0.95);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
 }
