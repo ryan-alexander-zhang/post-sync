@@ -9,7 +9,7 @@
 - 内容源为 Markdown 文本文件，允许包含 frontmatter 元信息。
 - 系统内部需要统一抽象内容、渠道账号、渠道目标、发布任务、单渠道投递结果。
 - 去重逻辑必须基于“去除 Meta 后的正文内容”，而不是整篇原始文件。
-- MVP 仅实现 Telegram 群组投递，但所有业务层接口按多渠道设计。
+- MVP 当前实现 Telegram 群组 / Topic 与 Feishu 群聊投递，但所有业务层接口按多渠道设计。
 - 数据存储通过配置切换 SQLite 或 PostgreSQL，不允许业务层分叉。
 
 本方案目标不是一次性设计完整内容平台，而是为后续编码提供足够具体、可拆分实现的落地蓝图。
@@ -21,7 +21,8 @@
 - 上传单个 Markdown 文件并持久化。
 - 解析 frontmatter 与正文，生成统一 Content Model。
 - 管理 Telegram 渠道账号、群组 root target 与群组 topic target。
-- 选择一个内容并发布到一个或多个 Telegram target。
+- 管理 Feishu 渠道账号与 chat target。
+- 选择一个内容并发布到一个或多个 Telegram / Feishu target。
 - 多 target 并行投递，并记录每个投递项状态。
 - 基础模板渲染：支持系统字段、frontmatter 字段、渠道参数注入。
 - 历史记录查询：按发布任务和单投递结果查看。
@@ -30,7 +31,7 @@
 
 ### 2.2 非目标
 
-- 飞书、X、RedNote、微信公众号、博客平台接入。
+- X、RedNote、微信公众号、博客平台接入。
 - 定时发布、审批流、草稿箱、多人协作。
 - 分布式队列、复杂调度中心、事件总线。
 - 高级模板 DSL、可视化模板编辑器。
@@ -50,7 +51,7 @@
 1. 前端：Next.js 管理界面，用于上传内容、配置渠道、发起发布、查看历史。
 2. 后端 API：Gin 提供 REST API，负责内容管理、渠道管理、发布编排、历史查询。
 3. 领域服务层：封装内容解析、模板渲染、去重计算、发布状态聚合。
-4. 渠道适配层：通过统一接口调用具体渠道实现，MVP 仅提供 Telegram adapter。
+4. 渠道适配层：通过统一接口调用具体渠道实现，当前提供 Telegram 与 Feishu adapter。
 5. 持久化层：Gorm + repository，兼容 SQLite / PostgreSQL。
 6. 部署层：Docker 多阶段构建，`docker-compose` 提供本地一键启动。
 
@@ -66,6 +67,7 @@ backend/
     repository/
     service/
     channel/
+      feishu/
       telegram/
     render/
     parser/
@@ -90,7 +92,7 @@ docs/
 - `content` 模块：上传 Markdown、解析 frontmatter、正文标准化、内容入库。
 - `channel` 模块：管理渠道账号、target、参数校验、驱动发现。
 - `publish` 模块：创建发布任务、生成投递项、并行执行、状态聚合。
-- `render` 模块：构造模板上下文、执行模板、生成渠道最终消息。
+- `render` 模块：构造模板上下文并执行模板；具体渠道格式转换由各 driver 负责。
 - `history` 模块：查询发布任务与投递历史。
 - `audit/log` 模块：记录最小审计字段与结构化日志。
 - `config` 模块：装载数据库、服务、渠道密钥等配置。
@@ -140,7 +142,7 @@ docs/
 表示一个可用的渠道账号或连接配置。
 
 - `id`
-- `channel_type`，例如 `telegram`
+- `channel_type`，例如 `telegram`、`feishu`
 - `name`
 - `enabled`
 - `secret_ref`，例如 `TELEGRAM_BOT_TOKEN`
@@ -154,8 +156,8 @@ docs/
 
 - `id`
 - `channel_account_id`
-- `target_type`，MVP 支持 `telegram_group` 和 `telegram_topic`
-- `target_key`，Telegram 的逻辑目标键。群组 root 为 `chat_id`，topic 为 `chat_id:topic:topic_id`
+- `target_type`，当前支持 `telegram_group`、`telegram_topic`、`feishu_chat`
+- `target_key`，Telegram 的逻辑目标键。群组 root 为 `chat_id`，topic 为 `chat_id:topic:topic_id`；Feishu 为 `chat_id`
 - `target_name`
 - `enabled`
 - `config_json`
@@ -219,8 +221,8 @@ docs/
 ```go
 type ChannelDriver interface {
     Type() string
-    ValidateAccount(config ChannelAccountConfig) error
-    ValidateTarget(target ChannelTargetConfig) error
+    ValidateAccount(input AccountValidationInput) error
+    NormalizeTarget(input TargetInput) (NormalizedTarget, error)
     Render(input RenderInput) (RenderedMessage, error)
     Send(ctx context.Context, req SendRequest) (SendResult, error)
 }
@@ -228,11 +230,11 @@ type ChannelDriver interface {
 
 ### 6.2 抽象对象
 
-- `ChannelAccountConfig`：账号级配置，例如 bot token 引用、默认 parse mode。
-- `ChannelTargetConfig`：目标级参数，例如 chat id、topic id、是否静默发送。
+- `AccountValidationInput`：账号级配置校验输入。
+- `TargetInput` / `NormalizedTarget`：目标级参数规范化输入与结果。
 - `RenderInput`：内容、模板、系统字段、渠道字段组成的统一渲染输入。
-- `RenderedMessage`：标准化输出，包含 `title`、`body`、`render_mode`、`metadata`。
-- `SendRequest`：驱动最终发送入参。
+- `RenderedMessage`：标准化输出，包含 `title`、`body`、`render_mode`。
+- `SendRequest`：驱动最终发送入参，包含账号、目标、幂等键等上下文。
 - `SendResult`：外部 message id、原始响应、耗时、限流信息。
 
 ### 6.3 Telegram 在抽象中的实现
@@ -253,14 +255,37 @@ Telegram target 建模规则：
 - 群组下每个 topic 存为一个独立 `telegram_topic` target，`target_key=chat_id:topic:topic_id`
 - 同一群组下可配置多个 topic target
 
-### 6.4 新增渠道的扩展方式
+### 6.4 Feishu 在抽象中的实现
+
+Feishu 首版实现规则：
+
+- `ChannelAccount.channel_type = feishu`
+- `ChannelTarget.target_type = feishu_chat`
+- `target_key = chat_id`
+- 账号配置保存 `appIdEnv`、可选 `tokenEnv`、可选 `baseUrl`
+- `secret_ref` 默认指向 `FEISHU_APP_SECRET`
+
+鉴权策略：
+
+- 若配置了 `tokenEnv` 且环境变量存在，则直接使用该 `tenant_access_token`
+- 否则通过 `appIdEnv + secret_ref` 获取并缓存 `tenant_access_token`
+- token provider 作为 driver 依赖，不暴露到业务编排层
+
+渲染策略：
+
+- 当前只实现 `text` 消息
+- 默认模板输出 Markdown 文本
+- Feishu driver 直接把模板结果封装为 `{"text":"..."}` 并发送
+
+### 6.5 新增渠道的扩展方式
 
 后续新增飞书、X、博客平台时，仅需要：
 
 1. 新增驱动实现 `ChannelDriver`
-2. 为该驱动补充账号/target 参数 schema
-3. 增加 renderer 适配逻辑
-4. 在 API 层注册允许的 `channel_type`
+2. 在 driver 内实现账号校验、target 规范化、发送逻辑
+3. 如需鉴权刷新，引入渠道专属 token provider
+4. 在前端 `channels.ts` 中补充 schema 和表单映射
+5. 如有需要，实现专属模板转换策略
 
 发布编排、状态机、历史查询无需重写。
 
@@ -305,19 +330,24 @@ MVP 仅支持基础变量替换、条件判断、简单函数。
 - 支持：`if`、`range`、字符串拼接、`join`
 - 不支持：自定义脚本、外部 HTTP、复杂 DSL、模板继承
 
-### 7.4 Telegram 渲染策略
+### 7.4 Telegram / Feishu 渲染策略
 
-MVP 推荐默认模板输出 Markdown 文本，再由 Telegram driver 转换为 Telegram HTML。
+默认模板先输出 Markdown 文本，再由各渠道 driver 转换为目标平台格式。
 
-处理步骤：
+Telegram：
 
 1. 模板产出 Markdown。
 2. 使用 Markdown 渲染器转为 HTML。
 3. 清洗为 Telegram 支持标签子集。
 4. 发送时使用 `parse_mode=HTML`。
-5. 若转换失败，降级为纯文本发送。
 
-这样可最大化复用 Markdown 内容，同时避免直接处理 Telegram MarkdownV2 的转义复杂度。
+Feishu：
+
+1. 模板产出 Markdown。
+2. 当前不做 HTML 转换。
+3. 直接封装为 `msg_type=text` 的 `content` JSON 字符串。
+
+这样可以让模板层保持统一，而把平台差异压缩在 driver 内。
 
 ## 8. 发布流程设计
 
@@ -507,11 +537,11 @@ MVP 不直接用唯一索引阻止插入，因为：
 |---|---|---|
 | id | uuid / string | 主键 |
 | channel_account_id | uuid / string | 所属账号 |
-| target_type | varchar(50) | `telegram_group` 或 `telegram_topic` |
+| target_type | varchar(50) | `telegram_group`、`telegram_topic`、`feishu_chat` |
 | target_key | varchar(255) | 逻辑目标键，topic 目标为复合键 |
 | target_name | varchar(100) | 显示名称 |
 | enabled | bool | 是否启用 |
-| config_json | json/text | 目标参数，Telegram 包含 `chatId`、`topicId`、`topicName` |
+| config_json | json/text | 目标参数，Telegram 包含 `chatId`、`topicId`、`topicName`；Feishu 包含 `chatId`、`receiveIdType` |
 | created_at | timestamp | 创建时间 |
 | updated_at | timestamp | 更新时间 |
 
@@ -627,7 +657,7 @@ API 前缀统一为 `/api/v1`。
 {
   "contentId": "cnt_123",
   "targetIds": ["tgt_1", "tgt_2"],
-  "templateName": "default-telegram"
+  "templateName": "default"
 }
 ```
 
@@ -667,7 +697,7 @@ API 前缀统一为 `/api/v1`。
 - `/contents`：内容列表页。
 - `/contents/[id]`：内容详情页，展示 frontmatter、正文预览、body hash、发布按钮。
 - `/publish/new`：发起发布页，选择内容、目标、模板。
-- `/channels`：渠道账号和 target 管理页，支持配置 Group root 和多个 Topic target。
+- `/channels`：渠道账号和 target 管理页，支持配置 Telegram Group root / Topic 与 Feishu Chat target。
 - `/history`：发布历史页。
 - `/history/[jobId]`：任务详情页，查看单 target 状态、错误信息、外部消息 ID。
 
@@ -693,7 +723,7 @@ API 前缀统一为 `/api/v1`。
 
 - 上传成功后立即展示解析结果和 `body_hash`。
 - 发起发布时按 target 多选，并清晰提示可能被去重跳过。
-- 渠道页需要清楚展示某个 target 是 Group root 还是 Topic，以及所属的 `chat_id` / `topic_id`。
+- 渠道页需要清楚展示某个 target 的渠道类型、Group root / Topic / Chat 子类型，以及所属逻辑 ID。
 - 历史页需要区分任务状态和单投递状态。
 - 失败投递提供“重试”按钮。
 
@@ -704,7 +734,7 @@ API 前缀统一为 `/api/v1`。
 - `VALIDATION_ERROR`：文件格式、参数缺失、模板变量错误。
 - `CONFIG_ERROR`：缺少 bot token、secretRef 未映射。
 - `RENDER_ERROR`：模板执行失败、Markdown 转换失败。
-- `CHANNEL_ERROR`：Telegram API 4xx / 5xx。
+- `CHANNEL_ERROR`：Telegram / Feishu API 4xx / 5xx。
 - `DB_ERROR`：数据库读写失败。
 
 ### 14.2 API 层原则
@@ -725,6 +755,13 @@ API 前缀统一为 `/api/v1`。
 - `telegram_topic` target 发送到指定 topic，并携带 `message_thread_id=topic_id`
 - 同一个群组下不同 topic 的投递彼此独立，状态、去重、重试均分别计算
 
+### 14.5 Feishu 鉴权与投递规则
+
+- 若配置 `tokenEnv` 且环境变量存在，直接使用静态 `tenant_access_token`
+- 否则使用 `appIdEnv + secret_ref` 请求 `tenant_access_token`
+- 当前仅发送 `msg_type=text`
+- `feishu_chat` target 使用 `chat_id` 作为 `target_key`
+
 ## 15. 配置与安全设计
 
 ### 15.1 配置分层
@@ -738,6 +775,7 @@ API 前缀统一为 `/api/v1`。
 敏感信息不写入数据库明文：
 
 - Telegram Bot Token 存环境变量
+- Feishu App Secret / App ID / 可选静态 tenant access token 存环境变量
 - 数据库中仅存 `secret_ref`
 - 运行时由配置模块解析 `secret_ref -> env value`
 
@@ -749,6 +787,9 @@ SERVER_ADDR=:8080
 DB_DRIVER=sqlite
 DB_DSN=./data/post-sync.db
 TELEGRAM_BOT_TOKEN=xxx
+FEISHU_APP_ID=cli_xxx
+FEISHU_APP_SECRET=xxx
+FEISHU_TENANT_ACCESS_TOKEN=
 PUBLISH_MAX_PARALLELISM=5
 PUBLISH_TIMEOUT_SECONDS=20
 ```
@@ -819,7 +860,6 @@ scripts/build-image.sh
 
 ### 17.1 近期演进
 
-- 增加 `FeishuDriver`
 - 增加内容列表筛选和全文搜索
 - 支持自定义模板管理
 - 支持失败批量重试
@@ -845,7 +885,7 @@ scripts/build-image.sh
 1. 初始化后端/前端工程骨架与配置加载
 2. 建立数据模型与数据库迁移
 3. 实现 Markdown 解析、标准化和去重哈希
-4. 实现渠道抽象接口与 Telegram driver
+4. 实现渠道抽象接口与 Telegram / Feishu driver
 5. 实现发布任务编排与 Delivery 状态机
 6. 实现 Content / Channel / Publish API
 7. 实现前端上传、发布、历史页面
