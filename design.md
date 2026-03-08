@@ -257,7 +257,7 @@ Telegram target 建模规则：
 
 ### 6.4 Feishu 在抽象中的实现
 
-Feishu 当前实现规则：
+Enterprise Feishu 当前实现规则：
 
 - `ChannelAccount.channel_type = feishu`
 - `ChannelTarget.target_type = feishu_chat`
@@ -278,6 +278,22 @@ Feishu 当前实现规则：
 - `post.content` 目前使用单个 `md` 节点承载 Markdown 正文
 - 若存在 `title`，写入 `post.zh_cn.title`
 - 为避免重复，driver 会去掉默认模板里与标题相同的首个 `# title` 行
+
+Personal Feishu 当前实现规则：
+
+- `ChannelAccount.channel_type = personal_feishu`
+- `ChannelTarget.target_type = personal_feishu_webhook`
+- `target_key = webhook env ref` 的稳定哈希
+- 账号配置保存 webhook URL 环境变量引用和签名秘钥环境变量引用
+- 发送前按自定义机器人签名规则补 `timestamp` 和 `sign`
+
+渲染策略：
+
+- 默认模板仍输出 Markdown 文本
+- Personal Feishu driver 不复用 Enterprise Feishu 的 `md` 节点
+- driver 将正文按 webhook `post.zh_cn.content` 转成段落数组
+- 普通文本映射为 `text` 节点，Markdown 链接 `[text](url)` 映射为 `a` 节点
+- 若存在 `title`，写入 `post.zh_cn.title`
 
 ### 6.5 新增渠道的扩展方式
 
@@ -343,12 +359,20 @@ Telegram：
 3. 清洗为 Telegram 支持标签子集。
 4. 发送时使用 `parse_mode=HTML`。
 
-Feishu：
+Enterprise Feishu：
 
 1. 模板产出 Markdown。
 2. 不做 HTML 转换，也不复用 Telegram HTML。
 3. 将 Markdown 正文封装为 `msg_type=post` 的 `md` 节点。
 4. 标题进入 `post.zh_cn.title`，正文进入 `post.zh_cn.content`。
+
+Personal Feishu：
+
+1. 模板产出 Markdown。
+2. 不复用 Enterprise Feishu 的 `md` 节点结构。
+3. 将正文拆成 webhook `post.zh_cn.content` 段落数组。
+4. 普通文本写入 `text` 节点，Markdown 链接写入 `a` 节点。
+5. 标题进入 `post.zh_cn.title`。
 
 这样可以让模板层保持统一，而把平台差异压缩在 driver 内。
 

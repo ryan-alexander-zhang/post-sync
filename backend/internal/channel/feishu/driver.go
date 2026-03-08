@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"regexp"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ import (
 )
 
 const defaultBaseURL = "https://open.feishu.cn"
+
+var markdownLinkPattern = regexp.MustCompile(`\[(.*?)\]\((https?://[^\s)]+)\)`)
 
 type Driver struct {
 	client        *http.Client
@@ -248,18 +251,12 @@ func (d *PersonalDriver) NormalizeTarget(input channel.TargetInput) (channel.Nor
 
 func (d *PersonalDriver) Render(input channel.RenderInput) (channel.RenderedMessage, error) {
 	body := stripDuplicatedTitle(input.ContentTitle, input.ContentBody)
-	text := strings.TrimSpace(body)
 	title := strings.TrimSpace(input.ContentTitle)
-	if title != "" && text != "" {
-		text = title + "\n\n" + text
-	} else if title != "" {
-		text = title
-	}
 
 	return channel.RenderedMessage{
 		Title:      title,
-		Body:       text,
-		RenderMode: domain.RenderModeFeishuText,
+		Body:       strings.TrimSpace(body),
+		RenderMode: domain.RenderModePersonalFeishuPost,
 	}, nil
 }
 
@@ -287,9 +284,9 @@ func (d *PersonalDriver) Send(ctx context.Context, request channel.SendRequest) 
 	payloadBody, err := json.Marshal(map[string]any{
 		"timestamp": fmt.Sprintf("%d", timestamp),
 		"sign":      sign,
-		"msg_type":  "text",
-		"content": map[string]string{
-			"text": request.Body,
+		"msg_type":  "post",
+		"content": map[string]any{
+			"post": buildPersonalPostContent(request.Title, request.Body),
 		},
 	})
 	if err != nil {
@@ -365,6 +362,97 @@ func buildPostContent(title, body string) map[string]any {
 	}
 
 	return content
+}
+
+func buildPersonalPostContent(title, body string) map[string]any {
+	post := map[string]any{
+		"zh_cn": map[string]any{
+			"content": buildPersonalParagraphs(body),
+		},
+	}
+
+	if trimmedTitle := strings.TrimSpace(title); trimmedTitle != "" {
+		post["zh_cn"].(map[string]any)["title"] = trimmedTitle
+	}
+
+	return post
+}
+
+func buildPersonalParagraphs(body string) [][]map[string]string {
+	trimmed := strings.TrimSpace(body)
+	if trimmed == "" {
+		return [][]map[string]string{{{
+			"tag":  "text",
+			"text": "",
+		}}}
+	}
+
+	rawParagraphs := strings.Split(trimmed, "\n\n")
+	paragraphs := make([][]map[string]string, 0, len(rawParagraphs))
+	for _, paragraph := range rawParagraphs {
+		nodes := buildPersonalParagraphNodes(paragraph)
+		if len(nodes) == 0 {
+			continue
+		}
+		paragraphs = append(paragraphs, nodes)
+	}
+	if len(paragraphs) == 0 {
+		return [][]map[string]string{{{
+			"tag":  "text",
+			"text": trimmed,
+		}}}
+	}
+	return paragraphs
+}
+
+func buildPersonalParagraphNodes(paragraph string) []map[string]string {
+	text := strings.TrimSpace(paragraph)
+	if text == "" {
+		return nil
+	}
+
+	matches := markdownLinkPattern.FindAllStringSubmatchIndex(text, -1)
+	if len(matches) == 0 {
+		return []map[string]string{{
+			"tag":  "text",
+			"text": text,
+		}}
+	}
+
+	nodes := make([]map[string]string, 0, len(matches)*2+1)
+	cursor := 0
+	for _, match := range matches {
+		if match[0] > cursor {
+			prefix := text[cursor:match[0]]
+			if prefix != "" {
+				nodes = append(nodes, map[string]string{
+					"tag":  "text",
+					"text": prefix,
+				})
+			}
+		}
+
+		label := text[match[2]:match[3]]
+		href := text[match[4]:match[5]]
+		nodes = append(nodes, map[string]string{
+			"tag":  "a",
+			"text": label,
+			"href": href,
+		})
+		cursor = match[1]
+	}
+
+	if cursor < len(text) {
+		suffix := text[cursor:]
+		if suffix != "" {
+			nodes = append(nodes, map[string]string{
+				"tag":  "text",
+				"text": suffix,
+			})
+		}
+	}
+
+	return nodes
 }
 
 func stripDuplicatedTitle(title, body string) string {

@@ -138,7 +138,7 @@ func TestPersonalSendUsesWebhook(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 				t.Fatalf("Decode() error = %v", err)
 			}
-			if payload["msg_type"] != "text" {
+			if payload["msg_type"] != "post" {
 				t.Fatalf("msg_type = %v", payload["msg_type"])
 			}
 			if _, ok := payload["timestamp"].(string); !ok {
@@ -149,8 +149,25 @@ func TestPersonalSendUsesWebhook(t *testing.T) {
 			}
 
 			content, _ := payload["content"].(map[string]any)
-			if content["text"] != "Weekly Update\n\nhello" {
-				t.Fatalf("content.text = %#v", content["text"])
+			post, _ := content["post"].(map[string]any)
+			zhCN, _ := post["zh_cn"].(map[string]any)
+			if zhCN["title"] != "Weekly Update" {
+				t.Fatalf("title = %#v", zhCN["title"])
+			}
+
+			paragraphs, ok := zhCN["content"].([]any)
+			if !ok || len(paragraphs) != 1 {
+				t.Fatalf("content paragraphs = %#v", zhCN["content"])
+			}
+
+			nodes, ok := paragraphs[0].([]any)
+			if !ok || len(nodes) != 1 {
+				t.Fatalf("first paragraph nodes = %#v", paragraphs[0])
+			}
+
+			first, _ := nodes[0].(map[string]any)
+			if first["tag"] != "text" || first["text"] != "hello" {
+				t.Fatalf("first node = %#v", first)
 			}
 
 			return jsonResponse(http.StatusOK, `{"code":0,"msg":"ok"}`), nil
@@ -170,7 +187,8 @@ func TestPersonalSendUsesWebhook(t *testing.T) {
 			Type: domain.TargetTypePersonalFeishuWebhook,
 			Key:  buildWebhookTargetKey("PERSONAL_FEISHU_WEBHOOK_URL"),
 		},
-		Body: "Weekly Update\n\nhello",
+		Title: "Weekly Update",
+		Body:  "hello",
 	})
 	if err != nil {
 		t.Fatalf("Send() error = %v", err)
@@ -324,11 +342,37 @@ func TestPersonalRenderUsesTextMode(t *testing.T) {
 	if rendered.Title != "Weekly Update" {
 		t.Fatalf("Title = %q", rendered.Title)
 	}
-	if rendered.Body != "Weekly Update\n\nHello team" {
+	if rendered.Body != "Hello team" {
 		t.Fatalf("Body = %q", rendered.Body)
 	}
-	if rendered.RenderMode != domain.RenderModeFeishuText {
+	if rendered.RenderMode != domain.RenderModePersonalFeishuPost {
 		t.Fatalf("RenderMode = %q", rendered.RenderMode)
+	}
+}
+
+func TestBuildPersonalPostContentConvertsMarkdownLinkToAnchorTag(t *testing.T) {
+	content := buildPersonalPostContent("Weekly Update", "项目有更新: [请查看](http://www.example.com/)")
+
+	zhCN, ok := content["zh_cn"].(map[string]any)
+	if !ok {
+		t.Fatalf("zh_cn payload missing")
+	}
+	if zhCN["title"] != "Weekly Update" {
+		t.Fatalf("title = %v", zhCN["title"])
+	}
+
+	paragraphs, ok := zhCN["content"].([][]map[string]string)
+	if !ok || len(paragraphs) != 1 {
+		t.Fatalf("paragraphs = %#v", zhCN["content"])
+	}
+	if len(paragraphs[0]) != 2 {
+		t.Fatalf("nodes = %#v", paragraphs[0])
+	}
+	if paragraphs[0][0]["tag"] != "text" || paragraphs[0][0]["text"] != "项目有更新: " {
+		t.Fatalf("first node = %#v", paragraphs[0][0])
+	}
+	if paragraphs[0][1]["tag"] != "a" || paragraphs[0][1]["text"] != "请查看" || paragraphs[0][1]["href"] != "http://www.example.com/" {
+		t.Fatalf("second node = %#v", paragraphs[0][1])
 	}
 }
 
