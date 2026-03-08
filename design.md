@@ -8,6 +8,7 @@
 
 - 内容源为 Markdown 文本文件，允许包含 frontmatter 元信息。
 - 内容也允许来自 Obsidian 当前打开笔记，由 QuickAdd 脚本读取 frontmatter 后调用后端 API 上传并发布。
+- CORS 白名单通过环境变量配置，默认本地前端与本地 Obsidian origin 都可接入同一个后端。
 - 系统内部需要统一抽象内容、渠道账号、渠道目标、发布任务、单渠道投递结果。
 - 去重逻辑必须基于“去除 Meta 后的正文内容”，而不是整篇原始文件。
 - MVP 当前实现 Telegram 群组 / Topic 与 Feishu 群聊富文本投递，但所有业务层接口按多渠道设计。
@@ -646,6 +647,13 @@ MVP 不直接用唯一索引阻止插入，因为：
 ## 12. API 设计
 
 API 前缀统一为 `/api/v1`。
+
+CORS 约定：
+
+- 允许来源通过 `CORS_ALLOW_ORIGINS` 配置，采用逗号分隔
+- 中间件仅对命中的 `Origin` 回写 `Access-Control-Allow-Origin`
+- 本地开发默认允许 `http://localhost:3000`
+- 为支持 Obsidian QuickAdd，本地环境可额外加入 `app://obsidian.md`
 
 ### 12.1 Content API
 

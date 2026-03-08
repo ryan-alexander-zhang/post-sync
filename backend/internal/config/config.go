@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"strings"
 	"strconv"
 	"time"
 )
@@ -11,6 +12,7 @@ type Config struct {
 	ServerAddr       string
 	DBDriver         string
 	DBDSN            string
+	CORSAllowOrigins []string
 	HTTPReadTimeout  time.Duration
 	HTTPWriteTimeout time.Duration
 	PublishConfig    PublishConfig
@@ -27,6 +29,7 @@ func Load() Config {
 		ServerAddr:       getEnv("SERVER_ADDR", ":8080"),
 		DBDriver:         getEnv("DB_DRIVER", "sqlite"),
 		DBDSN:            getEnv("DB_DSN", "./data/post-sync.db"),
+		CORSAllowOrigins: getEnvAsCSV("CORS_ALLOW_ORIGINS", []string{"http://localhost:3000"}),
 		HTTPReadTimeout:  getEnvAsDuration("HTTP_READ_TIMEOUT_SECONDS", 10*time.Second),
 		HTTPWriteTimeout: getEnvAsDuration("HTTP_WRITE_TIMEOUT_SECONDS", 30*time.Second),
 		PublishConfig: PublishConfig{
@@ -69,4 +72,26 @@ func getEnvAsInt(key string, fallback int) int {
 	}
 
 	return value
+}
+
+func getEnvAsCSV(key string, fallback []string) []string {
+	raw := os.Getenv(key)
+	if strings.TrimSpace(raw) == "" {
+		return fallback
+	}
+
+	items := strings.Split(raw, ",")
+	values := make([]string, 0, len(items))
+	for _, item := range items {
+		trimmed := strings.TrimSpace(item)
+		if trimmed != "" {
+			values = append(values, trimmed)
+		}
+	}
+
+	if len(values) == 0 {
+		return fallback
+	}
+
+	return values
 }

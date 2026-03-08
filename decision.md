@@ -890,3 +890,35 @@ QuickAdd 脚本在上传 Markdown 到后端前，去除 frontmatter 中的发布
 - QuickAdd 上传的是“变换后的 Markdown 内容”，不是 vault 中原始文件的字节流。
 - 上传后的 `frontmatter_json` 不包含发布控制字段。
 - `post_title` 仍可保留在原笔记中供 Obsidian 使用，但后端最终读取的是脚本写入的 `title`。
+
+## 决策 17：CORS 改为环境变量驱动的来源白名单
+
+### 标题
+
+后端 CORS 不再硬编码单一 `http://localhost:3000`，改为通过 `CORS_ALLOW_ORIGINS` 环境变量配置允许来源列表。
+
+### 背景
+
+项目最初只服务本地前端页面，因此 CORS 中间件只允许 `http://localhost:3000`。在引入 Obsidian QuickAdd 后，桌面端用户脚本会以 Obsidian 自身的 origin 发起请求，固定来源会导致浏览器环境直接报 `Failed to fetch`，请求无法到达业务逻辑。
+
+### 备选方案
+
+- 方案 A：通过 `CORS_ALLOW_ORIGINS` 配置来源白名单
+- 方案 B：直接放开为 `*`
+- 方案 C：继续硬编码多个来源
+
+### 最终选择
+
+选择方案 A。
+
+### 原因
+
+- 同时满足本地前端与 Obsidian QuickAdd 的访问需求。
+- 比 `*` 更保守，不会把所有来源都放开。
+- 后续新增其它本地工具来源时只改环境变量，不改代码。
+
+### 影响
+
+- 新增环境变量 `CORS_ALLOW_ORIGINS`
+- 配置格式为逗号分隔，例如 `http://localhost:3000,app://obsidian.md`
+- CORS 中间件按请求 `Origin` 命中白名单后再回写允许头
