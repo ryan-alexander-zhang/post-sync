@@ -2,10 +2,14 @@ import { Shell } from "@/components/layout/shell";
 import { PublishJobForm } from "@/components/forms/publish-job-form";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { getChannelTargets, getContents } from "@/lib/api";
+import { getChannelAccounts, getChannelTargets, getContents } from "@/lib/api";
 
 export default async function PublishPage() {
-  const [contents, targets] = await Promise.all([getContents(), getChannelTargets()]);
+  const [contents, accounts, targets] = await Promise.all([
+    getContents(),
+    getChannelAccounts(),
+    getChannelTargets(),
+  ]);
 
   return (
     <Shell>
@@ -16,7 +20,11 @@ export default async function PublishPage() {
           Jobs are created immediately and executed in the background. Each target gets its own delivery record with success, failure, or duplicate-skip state.
         </p>
         <div className="mt-6">
-          <PublishJobForm contents={contents.items} targets={targets.items.filter((target) => target.enabled)} />
+          <PublishJobForm
+            contents={contents.items}
+            accounts={accounts.items.filter((account) => account.enabled)}
+            targets={targets.items.filter((target) => target.enabled)}
+          />
         </div>
       </Card>
     </Shell>

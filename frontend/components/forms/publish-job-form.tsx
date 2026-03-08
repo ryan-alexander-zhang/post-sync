@@ -5,22 +5,25 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { ChannelTarget, Content } from "@/lib/types";
+import { ChannelAccount, ChannelTarget, Content } from "@/lib/types";
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080/api/v1";
 
 export function PublishJobForm({
   contents,
+  accounts,
   targets,
 }: {
   contents: Content[];
+  accounts: ChannelAccount[];
   targets: ChannelTarget[];
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
+  const accountMap = new Map(accounts.map((account) => [account.id, account]));
 
   function submit(formData: FormData) {
     const selectedTargets = formData.getAll("targetIds");
@@ -62,13 +65,26 @@ export function PublishJobForm({
       </Select>
       <div className="grid gap-3 rounded-[24px] border border-border bg-white/60 p-4">
         <p className="text-sm font-medium">Select targets</p>
-        {targets.map((target) => (
-          <label key={target.id} className="flex items-center gap-3 text-sm">
+        {targets.map((target) => {
+          const account = accountMap.get(target.channelAccountId);
+          const channelLabel = account
+            ? `${account.name} · ${account.channelType}`
+            : target.channelAccountId;
+
+          return (
+            <label
+              key={target.id}
+              className="grid grid-cols-[auto_1fr] items-start gap-3 text-sm"
+            >
             <input className="size-4 accent-[#125b50]" name="targetIds" type="checkbox" value={target.id} />
-            <span>{target.targetName}</span>
-            <span className="text-foreground/45">{target.targetKey}</span>
-          </label>
-        ))}
+              <span className="grid gap-1">
+                <span className="font-medium">{target.targetName}</span>
+                <span className="text-xs text-foreground/55">{channelLabel}</span>
+                <span className="text-xs text-foreground/45">{target.targetKey}</span>
+              </span>
+            </label>
+          );
+        })}
       </div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-foreground/65">{message || "Duplicate body on the same target will be skipped automatically."}</p>
