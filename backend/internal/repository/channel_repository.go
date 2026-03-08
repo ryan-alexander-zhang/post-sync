@@ -66,3 +66,19 @@ func (r *ChannelRepository) GetTargetsByIDs(ctx context.Context, ids []string) (
 	err := r.db.WithContext(ctx).Find(&targets, "id IN ?", ids).Error
 	return targets, err
 }
+
+func (r *ChannelRepository) CountTargetsByAccountID(ctx context.Context, accountID string) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&domain.ChannelTarget{}).
+		Where("channel_account_id = ?", accountID).
+		Count(&count).Error
+	return count, err
+}
+
+func (r *ChannelRepository) DeleteAccount(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&domain.ChannelAccount{}, "id = ?", id).Error
+}
+
+func (r *ChannelRepository) DeleteTarget(ctx context.Context, id string) error {
+	return r.db.WithContext(ctx).Delete(&domain.ChannelTarget{}, "id = ?", id).Error
+}

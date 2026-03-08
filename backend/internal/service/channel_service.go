@@ -242,6 +242,38 @@ func (s *ChannelService) UpdateTarget(ctx context.Context, id string, input Upda
 	return target, nil
 }
 
+func (s *ChannelService) DeleteAccount(ctx context.Context, id string) error {
+	_, err := s.channelRepository.GetAccountByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	targetCount, err := s.channelRepository.CountTargetsByAccountID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if targetCount > 0 {
+		return fmt.Errorf("%w: delete targets before deleting the account", ErrValidation)
+	}
+
+	return s.channelRepository.DeleteAccount(ctx, id)
+}
+
+func (s *ChannelService) DeleteTarget(ctx context.Context, id string) error {
+	_, err := s.channelRepository.GetTargetByID(ctx, id)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+
+	return s.channelRepository.DeleteTarget(ctx, id)
+}
+
 func marshalConfig(config map[string]any) (string, error) {
 	if len(config) == 0 {
 		return "{}", nil

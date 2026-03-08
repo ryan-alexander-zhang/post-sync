@@ -20,9 +20,11 @@ func (h *ChannelHandler) RegisterRoutes(group *gin.RouterGroup) {
 	group.GET("/channel-accounts", h.ListAccounts)
 	group.POST("/channel-accounts", h.CreateAccount)
 	group.PATCH("/channel-accounts/:id", h.UpdateAccount)
+	group.DELETE("/channel-accounts/:id", h.DeleteAccount)
 	group.GET("/channel-targets", h.ListTargets)
 	group.POST("/channel-targets", h.CreateTarget)
 	group.PATCH("/channel-targets/:id", h.UpdateTarget)
+	group.DELETE("/channel-targets/:id", h.DeleteTarget)
 }
 
 func (h *ChannelHandler) ListAccounts(c *gin.Context) {
@@ -117,4 +119,34 @@ func (h *ChannelHandler) UpdateTarget(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, target)
+}
+
+func (h *ChannelHandler) DeleteAccount(c *gin.Context) {
+	err := h.channelService.DeleteAccount(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotFound):
+			writeError(c, http.StatusNotFound, "CHANNEL_ACCOUNT_NOT_FOUND", "channel account not found")
+		default:
+			writeServiceError(c, err)
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
+func (h *ChannelHandler) DeleteTarget(c *gin.Context) {
+	err := h.channelService.DeleteTarget(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrNotFound):
+			writeError(c, http.StatusNotFound, "CHANNEL_TARGET_NOT_FOUND", "channel target not found")
+		default:
+			writeServiceError(c, err)
+		}
+		return
+	}
+
+	c.Status(http.StatusNoContent)
 }
