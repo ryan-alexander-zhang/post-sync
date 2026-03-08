@@ -1,5 +1,6 @@
 import { Shell } from "@/components/layout/shell";
 import { ChannelAccountForm } from "@/components/forms/channel-account-form";
+import { DeleteButton } from "@/components/forms/delete-button";
 import { ChannelTargetForm } from "@/components/forms/channel-target-form";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -41,6 +42,7 @@ export default async function ChannelsPage() {
                 <TH>Channel</TH>
                 <TH>Secret ref</TH>
                 <TH>Enabled</TH>
+                <TH>Action</TH>
               </tr>
             </thead>
             <tbody>
@@ -50,6 +52,12 @@ export default async function ChannelsPage() {
                   <TD>{account.channelType}</TD>
                   <TD className="font-mono text-xs">{account.secretRef}</TD>
                   <TD>{String(account.enabled)}</TD>
+                  <TD>
+                    <DeleteButton
+                      label={`account ${account.name}`}
+                      path={`/channel-accounts/${account.id}`}
+                    />
+                  </TD>
                 </tr>
               ))}
             </tbody>
@@ -67,6 +75,7 @@ export default async function ChannelsPage() {
                 <TH>Chat ID</TH>
                 <TH>Account</TH>
                 <TH>Enabled</TH>
+                <TH>Action</TH>
               </tr>
             </thead>
             <tbody>
@@ -76,6 +85,12 @@ export default async function ChannelsPage() {
                   <TD className="font-mono text-xs">{target.targetKey}</TD>
                   <TD>{target.channelAccountId}</TD>
                   <TD>{String(target.enabled)}</TD>
+                  <TD>
+                    <DeleteButton
+                      label={`target ${target.targetName}`}
+                      path={`/channel-targets/${target.id}`}
+                    />
+                  </TD>
                 </tr>
               ))}
             </tbody>
